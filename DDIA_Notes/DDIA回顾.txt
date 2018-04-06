@@ -1,0 +1,142 @@
+---
+date: 2018-04-06 22:56
+status: public
+title: 'Designing Data-Intensive Applications 回顾 (Overview)'
+---
+
+[TOC]
+# Designing Data-Intensive Applications 回顾 (Overview)
+
+## 导读
+
+这本书是知乎上一群大神极力推荐的，说是读完以后对整个数据系统醍醐灌顶。作为一位数据搬运工，平日里做得最多的还是跑数，但对很多工具的认识还很肤浅，所以很需要这样一本神书加深对数据系统的认识。这本书深入浅出地讲解了data system的概况，通过两个月的囫囵吞枣，终于扫完了书里的每个字。很多地方读得不大明白，很多地方读完也就忘了，所以这里专门开始为一个DDIA的读书笔记（回顾），以“证明”读了这本书，不然就跟流式系统的数据被丢失了一样。
+
+### 我对本书的认识
+
+这本书，对应到大学课堂，就是数据库+分布式系统的结合体，但没有那么学术化，不会堆砌概念，而是会结合很多实例进行讲解。
+
+除此之外，我认为此书还是全面认识大数据技术栈的一个捷径（当然不要期望走什么捷径，此书不过给我们一个全景，具体细节还需要在实践中体会）。当前（其实已经过了，现在最火的可是AI和区块链（大雾））大数据技术炒得很火，什么MR/Hive/Pig/HBase/Spark/Flink/Flume/Kafka/Storm，但很少有文档能够一应俱全的将这些系统的应用场景以及背后的设计思想讲清楚。
+
+最后，我感觉此书还让我对工作中的一些事情有了更清晰的认识。比如说统一的数据接口的设计（为啥用PB呢），离线分析/实时数据处理各自的职责以及优缺点，以及使用的技术栈，这些在读完此书后都有了进一步的理解。
+
+### 我所理解的数据系统
+
+目前我认识的数据系统是什么样的呢？
+
+抛开“大数据”的概念，就是LMAP或者是Java那一套“写网站的”就涉及到很多。最直观的的就是后台读写数据库，其次就是http服务会将数据encode成json。这里我理解成client与sever之间的数据交换，也就是类似于餐馆里顾客与服务员之间的关系。
+
+再看看“大数据”，从日志采集开始(Flume)，到消息中间件(Kafka)，到流式处理(Storm/Flink/Spark Streaming，当然也可以是其它C++ based tools)，再到离线存储(HDFS)，然后是离线分析(MR/Hive/Spark)，或许还有数据检索(HBase)，整个pipeline就好像是一个生产车间，从原材料（原始日志），到传送带（MQ?），到热加工(streaming)，到冷却（存储），再到质检（离线分析），这妥妥的一个传统工厂呀。那其实数据系统不就是一个生产车间吗（蛤蛤，道出了数据码农的真相）？
+
+接下来，我将copy一下书的目录，回顾一下书里讲了些什么。
+
+## 数据系统基础
+
+1. 一个优秀的数据系统需要拥有怎样的性质？(Reliability, Scalability and Maintainability)
+
+2. data model与query
+
+    (1) model
+
+        a. relational model(nosql included)
+        b. document model
+        c. graph model
+
+    (2) query languages
+
+        a. Declarative queries
+        b. MR
+
+3. 数据底层的存储与检索模型
+
+    (1) 数据结构
+
+        a. hash indexes
+        b. sstables
+        c. lsm-tress
+        d. b-trees
+
+    (2) OLTP/OLAP（不同需求对存储/检索的要求不同）
+
+    (3) 列式存储（fast query?）
+
+4. 数据编码与数据流
+
+    (1) 编码格式
+
+        a. language specific(序列化)
+        b. json/xml
+        c. thrift & pb
+        d. avro(不知道)
+
+    （2）数据流
+
+        a. 从数据库的读写看
+        b. 从service看（REST/RPC）
+        c. message-passing（中间件？）
+
+## 分布式数据
+
+1. 复制/备份(replication)
+
+    (1) 为啥要replication
+
+    (2) 需要考虑的问题
+
+        a. 主从模式下的问题
+        b. 实现细节(replication logs/lag)
+        c. 多leader下的问题
+        d. 无leader模式的问题
+
+2. 分区(partitioning)
+
+    (1) 对K-V进行分区(key range/hash key)------spark中的partition概念
+
+    (2) 二次索引
+
+    (3) rebalance partitions与路由选择
+
+3. transactions( 不是分布式产生的概念，但在分布式中需要考虑更多问题)
+
+    (1) ACID
+
+    (2) weak isolation
+
+    (3) serializability
+
+4. 分布式系统有哪些难题
+
+    (1) 不可靠网络
+
+    (2) 不可靠时钟
+
+    (3) 消息的可信与否
+
+5. 一致性模型与一致性协议(consistency and consensus)
+
+    (1) linearizability
+
+    (2) ordering
+
+    (3) consensus
+
+## Derived Data
+
+1. 批处理
+
+    (1)单机Unix的pipe
+
+    (2)MR与其他更高级的批处理
+
+2. 流式处理
+
+    (1)消息系统与流式处理/实现方式(partitioned logs)
+
+    (2)与数据库的类比
+
+    (3)流式处理的方法与细节
+
+3. 展望
+
+## 结语
+
+其实，还是实践出真知。以上内容，我也就对batch processing略知一二，对于底层存储/流式处理/分布式处理等很多概念，虽然吞过书，但很多东西依然不大理解。所以，接下来，我会针对以上内容，再温习一遍，用博文记录下来。
