@@ -1,0 +1,39 @@
+---
+date: 2015-01-26 16:30
+status: public
+tags: MLT_Note
+title: 'Adaptive Boosting'
+---
+
+[TOC]
+与bagging类似，这里使用的方法也是使用多次抽样的方法，获取多个模型。但bagging是均匀抽样，而adaboost则是：已有一个模型，对数据分类，然后与原始标签对比，如果分类错误则增大该数据下一次被抽样的概率。但是实际操作起来不好办，所以这里换一个角度。
+##模型建立
+每次抽样的时候，我们让每个数据都带上权值，比如说现在有下面的数据：
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/80.png)
+抽取的结果：
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/82.png)
+意思就是说，一号数据更为重要（权值为2，抽到两次），而三号数据则没有抽到。所以，每次抽取数据的时候，数据都会有对应的权值，权值高的表示跟重要，而计算错误的时候也加上权值，权值为0则表示没抽到，不重要。
+所以，现在的目标就是优化带权值的$E_{in}$，从而获取对应的模型。
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/81.png)
+###获取更diverse的假设
+假设前一次抽取数据得到的是$g_t$，后一次是$g_{t+1}$，就像这样：
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/83.png)
+只有后一次的模型与前一次不一样，我们才有继续往下进行的理由。那么怎么个不一样法呢？
+一个想法就是构建下一次抽样的权重，使得前一次获得的模型在该数据上的表现跟随机的一样（因为$g_{t+1}是下一次数据上最优表现的模型，如果$g_t$在下一次数据上表现随机的话，就表明二者的差异是最大的）。
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/84.png)
+一种做法就是：
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/85.png)
+也就是，对于那些正确的样本，下一次的权值就等于上一次权值乘以上一次的带权错误率（降低相对权值），错误的样本则增大相对权值。
+##AdaBoost
+所以，最终的算法流程如下：
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/86.png)
+最后一步是将所有的模型结合起来，那么权值是怎样选取的呢？如果加权错误率高的话，说明这个模型不好，所以权值应该低。反之，权值应该高。分析发现，其实$\alpha$应该与上面的方片成正关系，所以就直接将方片取个ln就好了。考虑极限情况，如果$\epsilon_t=\frac{1}{2}$,表示表现很差（随机），计算下来$\alpha=0$，即不采用该模型。如果$\epsilon_t=1$，那么$\alpha=\infty$，这是一个上限，表明假设模型很好，但基本做不到。
+##理论保证
+相关理论证明：
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/87.png)
+如果base algorithm(A)比较弱的话，那么(AdaBoost+A)就会变得强大，因为$E_{in}$很容易做到0，而有VC理论的保证，$E_{out}$较小。
+##Decision Stump
+这是一个常用的base learning algorithm，在二维平面上看就是水平切一刀或者垂直切一刀。
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/88.png)
+切完多刀后，效果还是不错的（有待补充习题中的信息）
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/89.png)

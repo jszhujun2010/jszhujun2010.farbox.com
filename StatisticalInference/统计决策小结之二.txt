@@ -1,0 +1,48 @@
+---
+date: 2015-03-27 18:39
+status: public
+tag: StatisticalInference
+title: 统计决策小结之二
+---
+
+[TOC]
+##正态分布(normal)与二项分布(binomial)拾遗
+###Normal Distribution
+回忆一下单变量高斯分布的概率密度函数：
+```mathjax
+f(x)=\frac{1}{\sqrt{2\pi}\sigma}e^{-\frac{(x-\mu)^2}{2{\sigma}^2}}
+```
+####68-95-99.7% rule
+正态分布再熟悉不过了,但好像对数值还没有一个感性的认识，这里的rule就是给我们一个标准高斯分布数值的直观理解。规则内容如下图所示：
+![rule](http://7u2m8l.com1.z0.glb.clouddn.com/sdrule.png)
+在均值一个$\sigma$范围内的分布面积（个体比例）为0.68，两个$\sigma$范围内为0.95，三个范围内则为0.997。
+####Z scores
+Z score是指将某个正态分布进行归一化，变成标准正态分布。针对某个高斯分布的观察值$o$，整个分布的均值为$\mu$，标准差为$\sigma$，那么：
+```mathjax
+z = \frac{o-\mu}{\sigma}
+```
+这样就可以将非标准正态分布转换成标准分布了。还记得在learning from data里面，将数据归一化也是这么做的。
+####两个R命令
+针对正态分布($\mu$, $\sigma$)：
+1.计算观察点$x_0$的累积概率：
+pnorm($x_0$, mean = $\mu$, sd = $\sigma$)
+2.已知某点的累积概率为p, 计算该点的位置：
+qnorm(p, mean = $\mu$, sd = $\sigma$)
+###Binomial Distribution
+二项分布也很熟悉，一个简单的例子就是连续几次投篮。这里记录两个重要的点：
+1.R命令求概率：
+已知事件一次成功的概率为$p$, 时间一共有$n$次，求成功$k$次的概率：
+dbinom($n$, size = $k$, p = $p$)
+2.二项分布的均值（期望）与标准差
+```mathjax
+\mu=np \\
+\sigma = \sqrt{np(1-p)}
+```
+###正态分布来拟合（接近）二项分布
+对于一个二项分布，如果期望至少有10个成功的例子与10个失败的例子，那么这个二项分布就接近于正态分布：
+Binomial($n$, $p$) ~ Normal($\mu$, $\sigma$)
+这里：
+```mathjax
+\mu=np \\
+\sigma = \sqrt{np(1-p)}
+```

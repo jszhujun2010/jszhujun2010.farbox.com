@@ -1,0 +1,81 @@
+---
+date: 2015-03-03 16:11
+status: public
+tags: MLT_Note
+title: 'Deep Learning'
+---
+
+[TOC]
+深度学习是最近几年来非常火热的话题，我所知道的深度学习就是指很多层的神经网络。由于这仍然是一个高速发展的学科，课程中只是讲到了Pre-traing以及一些regularization的知识。
+##Deep Learning及其挑战
+先来认识一下Deep Learning的意义。如下图所示，假设我们有手写数字的图像，要求区分出它们。
+![Meaningness](http://7u2m8l.com1.z0.glb.clouddn.com/DL_1.png)
+那么深层次的网络的意义在哪里呢？如果层数多，那么每一层要抽取特征的负担就比较轻，这样就可以实现复杂的学习任务。比如，我们要识别1和5，每一层每个节点只要能学到数据的很小的一部分特征，拥有众多层，众多节点就可以很轻松地完成任务。课上还说deep learning处理raw feature很自然，所以目前在计算机视觉，语音领域很流行。
+###挑战
+这个大概讲到四个方面：
++ 神经网络的结构很难确定：因为这与数据领域的知识相关，比如图像领域的卷积神经网络。
++ 模型高度复杂：因为如果数据量不够大的话，很容易overfitting。另外由于噪声的影响，也会过度拟合，所以需要regularization。
++最优化很困难：比如初始化的影响
++计算复杂度高
+老师说，最关键的技术还是regularization与initialization，也就是我们要讲的内容。
+
+##一个简单的Deep Learning
+为了初始化的权重更合理，我们通常会引入一个预训练的过程，先通过一定的方式依次训练出初始权重，然后再进行神经网络的权重学习。
+![Two_Step](http://7u2m8l.com1.z0.glb.clouddn.com/DL_2.png)
+上面就是一个简单的深度学习的架构。
+
+##pre-training的技术——Autoencoder
+Autoencoder是pre-training的一种技术，就是一个$d$-$\tilde d$-$d$的神经网络，目标是要训练出权重使得经过两次转换结果不变，也就是$g_i(\mathbf x) \approx x_i$.换句话说，就是要找到approximate identity function.
+那么为什么要这个approximate identity function呢？这里我感觉也就是直观上地解释了一下，说是这样能比较完整地保存原有数据的信息，可以找到数据的表示方法。
+至于要进行Autoencoder的话，就是训练一个两层的神经网络。这里有几点要注意：
+1.一般选择$\tilde d \le d$,这样才能将信息适当压缩，不要搞得太复杂。
+2.由于输入与输出一样，所以可以看成无标签的学习问题，也就是无监督学习。
+3.经常选择$w_{ij}^{(1)}=w_{ij}^{(2)}$，作为regularization，听说这么做在计算梯度的时候跟好算。
+###用Autoencoder来Pre-Training
+怎么应用呢？其实就是将上一层的输出作为输入，也就是${\mathbf x_n^{(l-1)}}$,然后把下一层作为中间层进行训练，也就是$\tilde d=d^{(l)}$.
+
+##Regularization——抵抗噪声(in Autoencoder)
+为了抵抗噪声，这里引入一个特别的方法，应用在Autoencoder上面，叫做denoising autoencoder.基本思路是说，robust的autoencoder在输入稍微变化的情况下（也就是有噪声影响），输出却不会变。所以，denoising autoencoder应该是：
+![denoising](http://7u2m8l.com1.z0.glb.clouddn.com/DL_4.png)
+这样的话，我们的模型就比较稳定，不太受噪声影响。要注意，这种方法，不仅在这里适用，还可以用到其他的模型中去，来抵抗噪声。
+
+##Linear Autoencoder & PCA
+现在考虑最简单的线性autoencoder，也就是：
+```mathjax
+\mathbf{h(x)=WW^TX}
+```
+所以，现在就是要最优化:
+```mathjax
+E_{in}(\mathbf h)=E_{in}(\mathbf W) = \frac{1}{N} \sum_{n=1}^{N}||\mathbf{x_n-WW^Tx_n}||
+```
+其中矩阵$\mathbf W$的大小为$d \times \tilde d$.这个问题不容易，因为这里涉及到四阶$\mathbf W$,这里采用了线性代数里的一种方法：特征值分解(eigen-decompose).
+###方法简述
+假设我们进行特征值分解，得到$\mathbf WW^T=V \Gamma V^T$.其中$\mathbf V$是一个一个$d \times d$的正交矩阵，也就是说：
+```mathjax
+\mathbf{VV^T=V^TV=I_d}
+```
+而矩阵$\Gamma$则是一个$d \times d$的对角矩阵，其中非零值小于等于$\tilde d$个。
+现在来看一下式子的几何含义：
+```mathjax
+\mathbf{WW^Tx_n=V \Gamma V^Tx_n}
+```
+由于$V$是一个正交矩阵，所以$V^Tx_n$就是改变了正交基底，集合上来看就是让$\mathbf x_n$进行旋转或者镜像处理。而$\Gamma$是一个对角矩阵，可以用来对向量进行伸缩。最后最左边乘上$V$则是将向量转回去。所以这个式子表示将$\mathbf x_n$旋转在伸缩再旋转。
+有了这样的分解后，我们可以优化：
+![MC](http://7u2m8l.com1.z0.glb.clouddn.com/DL_5.png)
+首先要优化的是$\mathbf \Gamma$,因为旋转变换不会影响向量的长度，所以$\mathbf V$可以先不管。很容易发现我们要的是$\mathbf{\min_{\Gamma} \sum ||(I-\Gamma)(some \; vector)||^2}$，所以我们就想要矩阵$\mathbf (I-\Gamma)$有尽可能多的0.而矩阵$\mathbf \Gamma$最多有$\tilde d$个非零值，所以我们可以不失一般性地设定最优的$\mathbf \Gamma$为：
+```mathjax
+\begin{bmatrix} \mathbf I_{\tilde d} & 0 \\ 0 & 0 \end{bmatrix}
+```
+这样$\mathbf \Gamma$的0尽可能多，使得被单位矩阵减后的结果0尽可能少。接下来，我们就要优化：
+![V](http://7u2m8l.com1.z0.glb.clouddn.com/DL_6.png)
+上式将前面的矩阵变换了一下，同时最小化变成最大化，这是很明显的。下面找找到最优的$\mathbf V$:
+![D](http://7u2m8l.com1.z0.glb.clouddn.com/DL_7.png)
+上面讲的是，先考虑$\tilde d=1$的情形，我们只要考虑$\mathbf V^T$的第一行。这样就得到一个要优化的向量以及等式约束。通过拉格朗日乘数法求解最优值，我们可以得到那个关于$\lambda$的式子。这个最优的$\mathbf v$实际上就是向量$\mathbf X^TX$最大的特征向量。就一般情况而言，最优的$\mathbf V^T$只要考虑前$\tilde d$行，这些刚好是$\mathbf x^TX$的top most特征向量。
+所以，linear autoencoder就是：projecting to orthogonal patterns $w_j$ that mathes {$x_n$} most.
+
+###PCA(Principal Component Analysis)
+其实，大家常讲的PCA与linear autoencoder是一回事。PCA是这么回事：
+![PCA](http://7u2m8l.com1.z0.glb.clouddn.com/DL_8.png)
+linear autoencoder做的是最大化$\sum {(\mathbf {maginitude \;after \;projection})^2}$,而主成分分析做的是最大化$\sum {(\mathbf {variance \;after \;projection})}$.
+它们都可以用来进行维度约减，但PCA可能更常见。
+这里PCA可能还需要再看一看，不是很清楚这个意思。

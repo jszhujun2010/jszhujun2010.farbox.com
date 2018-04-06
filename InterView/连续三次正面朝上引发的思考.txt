@@ -1,0 +1,218 @@
+---
+date: 2017-10-15 01:04
+status: public
+title: 连续三次正面朝上引发的思考
+---
+
+[TOC]
+#问题描述
+在去年某次面试中，某面试官一上来就跟我说，我来问你一个数学问题呀：
+```
+扔一块硬币扔到连续三次正面朝上的期望是多少？
+```
+之前没见过这道题呀，不仅是完全没有思路，而且问题一开始也没有理清。这个连续三次正面朝上的的期望到底是什么呢？
+#理清问题
+首先，我们先分析一下，这个期望到底是哪个随机变量的期望。这里针对的变量，是总的抛硬币的次数。换句话说，这个问题其实是问平均扔多少次硬币，才能得到连续三次正面朝上的情形？
+那这个问题怎么做呢？常规思路就是往期望的公式上套：
+```mathjax
+\DeclareMathOperator{\E}{\mathbb{E}} \E(X)=\sum_{i}^{}P_iX_i
+```
+那么问题就是枚举所有的情形，而这些情形最终都是三次正面朝上，且之前没有出现过。概率很好求解，多少次就是$(1/2)^n$，但是枚举嘛，显然不是那么容易做到的。即使找到某种规律枚举，最终求和也可能不会很快求解。
+问题怎么解呢？面试时，自然是思路堵塞的。通过查阅相关资料，我得到了三个不同的角度来解决这个问题。
+#常规思路(状态转移+废弃次数)
+状态转移似乎是一些面试中，概率期望问题用到的最多的思路。不过，当时还是naive，没有经验。
+我们首先考虑这样一个问题：
+```
+A，B两人轮流扔硬币，二者第一个扔出正面朝上者胜出，假设A先仍，求问A胜出的概率？
+```
+这个也是我某次面试的真题，不过这个问题比较好枚举，A胜出无非这样几种抛出情形：
+```
+A
+ABA
+ABABA
+......
+```
+假设A胜出的事件为A，那么
+```mathjax
+\begin{align}
+P(A)&=\frac{1}{2}+\frac{1}{2^3}+\frac{1}{2^5}+... \\
+&=\frac{1/2*(1-(1/4)^n)}{1-1/4}
+\end{align}
+```
+当n趋向于正无穷时,$P(A)=\frac{2}{3}$。不过这个解法，那些面试官感觉太naive了，非要换个解法，不要用无穷级数去解，找一个更clever的方法。说白了，他需要的就是这里的状态转移的思路。
+A胜出可以分为两种状态：
+1. A第一次就扔出了正面(假设事件为A1)
+2. A第一次没有扔出正面(假设事件为A2)，但下次B也没扔到，最终A还是赢了
+
+所以$P(A)=P(A1)+P(A2)$。很显然，$P(A1)=\frac{1}{2}$，需要思考的是$A2$的概率。因为每次扔的概率是互相独立的，而实际上第二种情形是三个独立事件的组合：
+```
+T T win(A)
+```
+也就是第一次抛出的是tail,第二次也是tail，后面发生了什么，我们不知道，但也不care，不过我们知道A胜利了，而且这里A胜利的概率是跟前两次抛的结果无关的。也就是说，此时事件的状态又回到了最开始的时候。这三个事件的概率分别为$\frac{1}{2}, , P(A)$。所以我们有：
+```mathjax
+\begin{align}
+P(A)&=P(A1)+P(A2) \\
+&=\frac{1}{2}+\frac{1}{2}\times\frac{1}{2}\times P(A)
+\end{align}
+```
+很容易求解得到$P(A)=\frac{2}{3}$.
+注意这里的两个关键点：
+1. 事件的拆分（后面会提到，这其实是一种条件概率的思路）
+2. 只关注状态的转移，忽略事件的中间过程（当然这是有前提的，状态之间要求是可以转移）
+
+好，有了上面的问题做铺垫，我们来看一下连续三次正面朝上的问题。这个问题会比上面的问题复杂不少，因为连续三次正面朝上，引入的状态会比较多，状态之间转移的关系也会比较复杂一些。其次，我认为思考出哪些状态之间的转移才是最关键的。
+当然，有了前人的铺垫[1,2,3]，我们可以知道下图的状态转移是很合理的（当年室友也一下子就想到了这个状态转移的关系）。
+![](~/11-06-47.png)
+这里，我也来放个马后炮，分析一下怎么思考出这个状态转移关系的。首先，这里还是假设正反面的概率均为$\frac{1}{2}$。我们的最终的状态是连续三次正面朝上，也就是图中的状态4：HHH。怎样才能到达状态4呢？那必然只能从状态3转移过来，同时再抛一次正面朝上。类似的，状态2转到状态3，状态1转到状态2，也是这样的逻辑。此外，状态2和状态3不是一个稳定的状态，如果再抛一次tail，那么就会前功尽弃，回到最初的状态1。有了以上的分析，下面就是需要列一个方程，描述这个状态转移的关系了。假设从状态1到达状态4的平均次数是$x$，那么
+```mathjax
+x=\frac{1}{2}\times(x+1)+\frac{1}{2^2}\times(x+2)+\frac{1}{2^3}\times(x+3)+\frac{1}{2^3}\times 3
+```
+等式左边就是从状态1到达状态4的平均次数，等式右边是几种到达状态4的可能路径：
+我们先看最后一项，可能我们运气很好，三步就到达状态4，这样的概率是$\frac{1}{2^3}$；然后，我们可能从状态1又回到状态1，这样是抛掷了一次，然后从状态1通过若干操作到了状态4，这样平均是$x+1$次，概率是$\frac{1}{2}$；接着，我们可能是从状态1到状态2，然后状态2又回到状态1，这样平均是$x+2$次，概率是$\frac{1}{2^2}$；最后则是从状态1到状态2到状态3，然后回到状态1，这样次数为$x+3$，概率是$\frac{1}{2^3}$。
+这样式子解下来$x=14$。看上去很自然吧？但在我看来，一点都不自然。因为上面的$x+1$,$x+2$,$x+3$是什么鬼？很多解释说，前面浪费了1次，2次，3次。但，这个跟$x$这个平均值加起来是个什么鬼？怎么看怎么感觉这个加法没有意义。
+#条件期望
+为了解释上面的问题，这一部分引入条件期望[4]。本质上，这里的方法还是状态转移，最关键的还是事件的拆分，但更有科学道理。考虑上面的状态图：我们从状态1到状态4有四种情形，如果把正面记作H，反面记作T(后面也会这样表示)，假设第一次出现连续三次正面朝上为事件3H，那么：
+```mathjax
+E(3H)=E(3H|T)p(T)+E(3H|HT)p(HT)+E(3H|HHT)p(HHT)+E(3H|HHH)p(HHH)
+```
+这里每一项都与前面的等式一一对应。这实际上是对期望的分解，穷举出所有发生3H的条件（也就是4种从状态1到状态4的路径）。这里插一句，这一步分解似乎不是那么好想的。
+上式中$p(T),p(HT),p(HHT),p(HHH)$很简单求解，关键是这些条件期望怎么半？这里可以继续将事件进行拆分：
+```mathjax
+\begin{align}
+E(3H|T)&=E(T|T)+E(3H'|T) \\
+&=1+E(3H') \\
+&=1+E(3H)
+\end{align}
+```
+我们知道3H是从状态1到状态4的平均抛掷次数，那么在已知第一次是Tail的条件下，我们可以将事件分为两部分：第一次抛掷（用事件T表示），后面的抛掷（startover，用事件3H'）表示。$E(T|T)$就是1，而$E(3H'|T)$中，条件其实是没用的，因为3H'事件与T事件是独立的，所以$E(3H'|T)=E(3H')$。又因为此时状态回到最初的状态1，所以3H'与3H事件是同一个事件，$E(3H')=E(3H)$。类似的，后面的$E(3H|HT), E(3H|HHT)$也可以这样进行拆分变换。至于最后一项$E(3H|HHH)$，这是已经发生了的3步，所以其值就是3。有了上面的解释，条件概率的拆分自然可以化为前面类似的式子。
+##Quora上的新思路
+在Quora上有人提出了一个新思路[5]，但也是基于条件期望来思考的(这里假设正面朝上的概率为$p$)。假设两个事件：
+1. $X=$ 得到连续n次正面朝上需要抛掷的次数
+2. $Y=$ 得到首次tail需要抛掷的次数
+
+这个$Y$事件其实跟上面的思路一样的，最关键的是$Y$事件是从头开始的标志，也是列条件分解等式的关键。
+所以：
+```mathjax
+\begin{align}
+E(X)&=\sum_{k=1}^{\infty}E(X|Y=k)P(Y=k) \\
+&=\sum_{k=1}^{n}E(X|Y=k)P(Y=k) + \sum_{k=n+1}^{\infty}E(X|Y=k)P(Y=k) \\
+&=\sum_{k=1}^{n}(E(X)+k)P(Y=k) + \sum_{k=n+1}^{\infty}nP(Y=k) \\
+\end{align}
+```
+上式对事件进行了拆分，根据的是$Y$事件。接着，又将$Y$事件分为两类：首次tail在n+1次之前和n次之后。这实际上跟上面的状态拆分是类似的：只考虑前n次的情形，后面的都是start over的。等式第三步讲的是，$E(X|Y=k)=E(X)+k$，这个就是前面多次提到的“浪费次数加上start over"，前面也使用较为数学化的语言进行了解释；第二项讲的是，前$n$次没有tail，因此X已经发生了，$E(X|Y=k)=n$。接着将上式子移项：
+```mathjax
+E(X)\sum_{k=n+1}^{\infty}P(Y=k) =\sum_{k=1}^{n}kP(Y=k) + \sum_{k=n+1}^{\infty}nP(Y=k) \\
+```
+解得：
+```mathjax
+\begin{align}
+E(X)&=n+\frac{\sum_{k=1}^{n}kP(Y=k)}{\sum_{k=n+1}^{\infty}P(Y=k)} \\
+&=n+\frac{\sum_{k=1}^{n}kp^{k-1}(1-p)}{p^n} \\
+&=n+\frac{\sum_{k=1}^{n}kp^{k-1}-\sum_{k=1}^{n}kp^{k}}{p^n} \\
+&=n+\frac{\sum_{k=0}^{n-1}(k+1)p^{k}-\sum_{k=1}^{n}kp^{k}}{p^n} \\
+&=n+\frac{\sum_{k=0}^{n-1}p^{k}-np^n}{p^n} \\
+&=\frac{p^{-n}-1}{1-p} \\
+\end{align}
+```
+这里比较trick的地方是：${\sum_{k=n+1}^{\infty}P(Y=k)}$，这实际上就等同于前n次为head的概率，因而为$p^n$。另外，由于抛硬币作为一个二项分布，相关公式带入做代换，即可得到上面的化简流程。
+#递推求解
+好，现在我再在看一个芝加哥大学STAT253/317[6]的一种解法，其基本思路也是将时间合理拆分，然后后递推求解。
+假设$T_k$是得到连续$k$次正面朝上需要抛掷的次数，要得到第$k$次连续正面朝上，就需要之前是$k-1$次连续正面朝上。所以：
+```mathjax
+    T_k= 
+\begin{cases}
+    T_{k-1}+1,& \text{w prob.} p, & \text{if  next toss is head}\\
+    T_{k-1}+1+T_{k}^{'},& \text{w prob.} 1-p, & \text{if next toss is tail}
+\end{cases}
+```
+与前面类似，这里还是将事件进行了拆分，从$k-1$次连续正面朝上的事件开始。上式中，$T_k^{'}$实际上是start over的一个事件，因而$T_{k}^{'} \thicksim T_{k}$（服从相同的分布），同时$T_{k}^{'}$与$T^{k-1}$互相独立。因此：
+```mathjax
+\begin{align}
+\DeclareMathOperator{\E}{\mathbb{E}} \E[T_k|T_{k-1}]&=T_{k-1}+1+(1-p)\DeclareMathOperator{\E}{\mathbb{E}} \E[T_k'|T_{k-1}]  \\
+&=T_{k-1}+1+(1-p)\DeclareMathOperator{\E}{\mathbb{E}} \E[T_k'] & \text{since }T_{k}^{'}, T_k \text{are indep.} \\
+&=T_{k-1}+1+(1-p)\DeclareMathOperator{\E}{\mathbb{E}} \E[T_k] & \text{since } T^{k}_{'}  \thicksim T_k
+\end{align}
+```
+在已知$T_{k-1}$的时候，$T_{k}$的期望值首先是至少为$T_{k-1}$；然后还有$1-p$的概率需要start over，因而上式成立。
+根据条件期望公式，我们有：
+```mathjax
+\begin{align}
+{\mathbb{E[T_k]}} &= {\mathbb{E}}[\E[T_k|T_{k-1}]] \\
+&=\mathbb{E[T_k-1]}+1+(1-p)\mathbb{E[T_k]}
+\end{align}
+```
+所以很容易得到：
+```mathjax
+{\mathbb{E[T_k]}} = ({\mathbb{E[T_{k-1}]}} + 1)/p,  k=2,3,4...
+```
+考虑一下$T_1$是什么？就是扔到第一次正面朝上的期望，这是一个几何分布，因而${\mathbb{E[T_1]}} =1/p$，所以后序的结果可以通过递推式得到：
+```mathjax
+\begin{align}
+&{\mathbb{E[T_2]}} = ({\mathbb{E[T_{1}]}} + 1)/p=1/p^2+1/p \\
+&{\mathbb{E[T_3]}} = ({\mathbb{E[T_{2}]}} + 1)/p=1/p^3+1/p^2+1/p \\
+...
+&{\mathbb{E[T_k]}} = ({\mathbb{E[T_{k-1}]}} + 1)/p=1/p^k+...+1/p^2+1/p=\frac{p^{-k}-1}{1-p}
+\end{align}
+```
+结果与上面的一摸一样。那为什么要引入这个方法呢？因为昨天在知乎上看到，其实这个问题是一个随机过程中著名的renewal process，更确切的说，是delayed renewal process。下一部分将简要介绍这一随机过程，以及如何使用其性质解这个问题。
+#delayed renewal process
+随机过程其实就是一个随机变量的序列，而renewal process则是哟中特殊的随机过程[7,8,9]。我们还是考虑扔硬币的场景，我们首先来一些定义：
+1. pattern A，比如前面问题中的“连续三次正面朝上”
+2. $N_A$，一个随机变量，首次得到pattern A需要抛掷的次数（HHH）
+3. $A(n)$,一个事件，在第$n$次抛掷的时候出现了pattern A(比如刚好出现三次正面朝上)
+4. $T_A$，一个随机变量，指的是上一次刚好出现了$A(n)$，那么下面再次出现$A(n)$还要抛掷的次数
+5. $N_{A}(n)$，一个随机变量，pattern A在前$n$次抛掷中出现的次数
+6. $N_{A\rightarrow B}$，一个随机变量，等于上次pattern A出现，然后再到pattern B 出现需要抛掷的次数。
+
+虽然上面定义了好多，但是对理解问题很有帮助。其实，这里就是定义了一个renewal process的一些关键概念。其中，$N_{A}(n)$就是counting of rvs（文献中的$N(t)$），$A(n)$则是arrival epochs(文献中的S)，而$T_A$则是intervaltimes(文献中的X)。这三种方式的序列都是定义renewal process的方式。 这个硬币pattern问题就是典型的renewal process。通化市，这里称之为delayed renewal process是因为首次pattern发生的概率分布与后序pattern的概率分布是不同的（这是因为首次发生时，之前没有状态；之后发生，我们都知道前面的状态就是那个pattern）。renewal process（包括delayed renewal process）显示的$N(t)$和$E[N(t)]$都无法求解，但是当$t$区域无穷大时，它们与$t$的比值都趋近$1/E[X_i]$，这是一条非常重要的性质（参见[芝加哥大学课件](https://galton.uchicago.edu/~yibi/teaching/stat317/2014/Lectures/Lecture15_6up.pdf)）。
+我们先来考虑这样一个问题：
+```
+pattern A在第72次出现的概率是多少？
+```
+事实上，只要$n \ge 3$，pattern A出现的概率都是$1/p^3$.这是因为第$n$次出现pattern指的是第$n-2,n-1,n$出现特定的pattern，而这些事件相互独立。也就是说，$P(A(n))=1/p^3$.
+那我们再来看另外一个问题：
+```
+假设pattern A在第72次出现了，那下次出现pattern A平均要投掷多少次？（也就是期望）
+```
+这个问题有些技巧性，同时用上了renweal process的一些性质。首先会议上面的$A(n)$和$N_A(n)$。$N_A(n)$的期望就是pattern A在前$n$次抛掷中平均出现了多少次，因此：
+```mathjax
+E[N_A(n)]=\sum_{k=1}^{n}P(A(k))
+```
+这是因为平均次数等于每一次出现的概率相加（这个应该很好理解，其实是枚举求期望的过程，只不过概率乘以的都是1）。接着，根据前面的问题，可以知道$P(A(n))=1/p^3$，对于$n \ge 3$。因此：
+```mathjax
+\begin{align}
+&\frac{E[N_A(n)]}{n} \rightarrow p^3  & \text{as} &\ n \rightarrow \infty
+\end{align}
+```
+再回到$T_A$的定义，也就是下次再出现$A(n)$需要抛掷的次数，采用扩展到delayed renewal process的理论，可得到：
+```mathjax
+\begin{align}
+&\frac{E[N_A(n)]}{n} \rightarrow \frac{1}{E[T_A]}  & \text{as} &\ n \rightarrow \infty
+\end{align}
+```
+所以，当$n$足够大时，
+```mathjax
+E[T_A]=\frac{1}{P(A(n))}
+```
+在这里，$E[T_A]=p^{-3}$.
+现在再回到我们的原始问题，求解$E[N_A]$。
+这里还是需要考虑状态转移的拆分，也就是前面提到的状态图，但这里更简单一些，也就是H->HH->HHH的转换。但更重要的是要考虑清楚$T_A$的含义，我们知道$T_A$是pattern A相邻间隔的序列长度，那么假设pattern A为HH,那么$T_A$就表示为：$HH | \ {mid} \ HH$。所以，这里可以取个巧，从H->HH的平均长度也就是从HH->HH的平均长度！（这一点其实比较难理解，还需要再捋一捋）
+```mathjax
+\begin{align}
+E[N_A]&=E[N_H]+E[N_{H \rightarrow HH}]+E[N_{HH \rightarrow HHH}] \\
+&=E[T_H]+E[T_{HH}]+E[T_{HHH}] \\
+&=1/p+1/p^2+1/p^3
+\end{align}
+```
+推广到一般情况也很容易。
+
+#参考文献
+[1] https://www.codechef.com/wiki/tutorial-expectation
+[2] https://math.stackexchange.com/questions/1839496/expected-number-of-tosses-to-get-3-consecutive-heads/1839631
+[3] https://courses.cit.cornell.edu/info2950_2012sp/mh.pdf
+[4] https://math.stackexchange.com/questions/1839496/expected-number-of-tosses-to-get-3-consecutive-heads/1839631
+[5] https://www.quora.com/What-is-the-expected-number-of-coin-flips-until-you-get-two-heads-in-a-row#!n=18
+[6] https://galton.uchicago.edu/~yibi/teaching/stat317/2014/Lectures/Lecture16_6up.pdf
+[7]http://www.columbia.edu/~ww2040/4106S11/lec0412.pdf
+[8]https://ocw.mit.edu/courses/electrical-engineering-and-computer-science/6-262-discrete-stochastic-processes-spring-2011/course-notes/MIT6_262S11_chap04.pdf
+[9]http://dept.stat.lsa.umich.edu/~ionides/620/notes/renewal_theory.pdf

@@ -1,0 +1,71 @@
+---
+date: 2015-03-29 13:47
+status: public
+tags: Data_Analysis_With_R
+title: 'Logistic Regression with R'
+---
+
+[TOC]
+##Soft binary classification for classification
+在《机器学习基石》课程里面，老师先通过perceptron的例子引入classification问题，接着讲到linear regression，然后使用逻辑回归作为classification与regression的桥梁。逻辑回归在课程里面也成为soft binary classification, 就是预测得到一个$(0,1)$区间里的值，换言之也就是一个概率。一个简单的逻辑回归例子就是根据病人的资料，预测病人患某种疾病的概率是多大。但是，在Analytics Edge(AE)课程里面，使用逻辑回归目的则更加实际。AE课程直接把逻辑回归拿过来作分类使用。在逻辑回归分析后，得到一个概率值，我们设置一个阈值，如果概率值大于阈值就分为B类，反之则分到A类。
+##简单的R命令
+###将数据分为training set与test set
+为了检验模型的效果，我们要将数据分为training set与test set. 在R里面有一个包(caTools)是用来随机抽取数据的（需要安装），甚至还可以直接将数据集随机分成测试集于训练集i：
+```R
+#load caTools
+library(caTools)
+#random split data quality into two parts
+split = sample.split(quality$PoorCare, SplitRatio = 0.75)
+#split method add a tag "split" to original data
+#has 75%(SplitRatio) of the original data
+qualityTrain = subset(quality, split == TRUE)
+#has 25% of the original data
+qualityTest = subset(quality, split == FALSE)
+```
+###Logistic Regression in R
+构建逻辑与逻辑回归类似：
+```R
+#build the model
+model = glm(PoorCare ~ f1 + f2, data=qualityTrain, family=binomial)
+#apply the model to training data
+predictTrain = predict(QualityLog, type="response")
+#apply the model to training data
+predictTest = predict(QualityLog, type="response", newdata = qualityTest)
+```
+要注意的是，上面得到的预测值实际上是一个在区间$(0,1)$上的概率，也就是soft binary classification的结果。那么，我们要分类，就要选好一个阈值，然后使用table命令查看结果：
+```R
+#confuison matrix, transform predictTest to 0/1 value
+table(qualityTest$PoorCare, predictTest > threshold)
+```
+###Confuison matrix
+Confusion matrix应该不算陌生了，但这里介绍两个指标：sensitivity与specificity。
+![CM](http://7u2m8l.com1.z0.glb.clouddn.com/CM.png)
+```mathjax
+\text{sensitivity}=\frac{\text{TP}}{\text{TP}+\text{FN}} \\
+\text{specificity}=\frac{\text{TN}}{\text{TN}+\text{FP}}
+```
+可以看出来sensitivity是预测准确的positive个数占实际positive个数的比例，而specificity则是指预测正确的negtive个数占实际negtive个数的比例
+###ROC与AUC
+什么是ROC呢？假设我们通过设定某个阈值，就可以得到TP与FP（比例）。当我们将阈值不断改变的时候，就可以得到一系列的(FP, TP)值对，这样我们就可以将这些数据放到坐标里面去，连成一条曲线，我们成这条曲线为ROC(Receiver Operator Characteristic Curve):
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/ROC.png)
+这条曲线一定是经过(0,0)点，因为只要将阈值设定为1，预测值就全为0，所以TP与TF均为0。曲线一定经过(1,1)点，原因也是类似的。
+那么什么是AUC呢？AUC就是ROC曲线下方的面积，area under curve. 那么AUC有什么物理意义呢？首先，我们要明确一点，那就是ROC是针对一个模型的，所以AUC也就是用来衡量一个模型好坏的指标。现在，我们有一个随机的样本，想要拿模型来预测一样其类标签。由于不同的阈值会导致不同的(FP, TP)数据对，我们衡量模型好坏的时候不能因为受到阈值的影响，所以我们要对结果进行平均。一般解释AUC物理意义的说法是：随机选择一个positive sample与一个negtive sample，positive sample的得分（logistic regression函数输出）比negtive sample的得分高的概率。这个解释很不直观，后面我要再写一篇博文分析这个问题。
+####R中的ROC与AUC
+首先要安装“ROCR”的函数包。
+```R
+#Install package and load the library
+install.packages("ROCR")
+library(ROCR)
+#Caution: prediction here, not predict; Here is prediction on training set, we can use it on test set either
+ROCRpred = prediction(predictTrain, qualityTrain$PoorCare)
+#Performance function, essential for ROC
+ROCRperf = performance(ROCRpred, "tpr", "fpr")
+#Plot ROC
+plot(ROCRperf)
+#Add colors
+plot(ROCRperf, colorize=TRUE)
+#Add threshold labels
+plot(ROCRperf, colorize=TRUE, print.cutoffs.at=seq(0,1,by=0.1), text.adj=c(-0.2,1.7))
+#Calculate AUC value
+as.numeric(performance(ROCRperf, "auc")@y.values)
+```

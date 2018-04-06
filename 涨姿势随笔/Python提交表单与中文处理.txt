@@ -1,0 +1,107 @@
+---
+date: 2015-03-10 09:55
+status: public
+tags: 涨姿势随笔
+title: '使用Python进行MS word文本提取，提交表单与中文处理'
+---
+
+[TOC]
+昨天，突然有个同学问我可不可以讲word文档的数据导入网页。一开始我不是很明白他的需求，后来才知道他要做的其实是要把已有的word文档里面的信息通过网页前端提交表单给网站数据库。由于量比较大，所以想要一个自动化的工具来实现。
+一开始，我想这个任务最主要的不就是模拟登陆然后提交表单嘛，虽然没做过，但Python大法做这件事情应该很简单。但后来，我发现完成任务有三点障碍：
+1.word文档读取信息
+2.模拟登陆相关API与参数问题
+3.中文编码处理的问题
+##word文档读取信息
+首先就是要解决如何从MS文档中读取信息的问题。有同学说，其实word文档可以看成一个压缩包。压缩包打开后，在目录"/word"下面有一个"document.xml"的文档，这个就是word存储文本的方式。所以，要解出word文档中的文本，实际上就是要解析xml文，做这件事情应该不难。
+虽然网上也有相应的模块来直接解析word文档的文本，但我还是找到了直接拿Python的标准库解决这个问题的解决思路：
+原文见作者的[github博客](http://etienned.github.io/posts/extract-text-from-word-docx-simply/),我已将代码进行了小更改。
+```python
+try:
+    from xml.etree.cElementTree import XML
+except ImportError:
+    from xml.etree.ElementTree import XML
+import zipfile
+
+"""
+Module that extract text from MS XML Word document (.docx).
+(Inspired by python-docx <https://github.com/mikemaccana/python-docx>)
+"""
+
+WORD_NAMESPACE = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
+PARA = WORD_NAMESPACE + 'p'
+TEXT = WORD_NAMESPACE + 't'
+
+def get_docx_text(path):
+    """
+    Take the path of a docx file as argument, return the text in unicode.
+    """
+    document = zipfile.ZipFile(path)
+    xml_content = document.read('word/document.xml')
+    document.close()
+    tree = XML(xml_content)
+
+    table = dict()
+    for paragraph in tree.getiterator(PARA):
+        texts = [node.text
+                 for node in paragraph.getiterator(TEXT)
+                 if node.text]
+        if texts:
+            info = ''.join(texts)
+            temp = info.split(u'\uff1a')
+            if len(temp) == 2:
+                table[temp[0]] = temp[1]
+    return table
+```
+很明显，上面代码的思路也是将文档看成压缩包，然后提取出XML文件进行解析的。注意到，我这里想要提取的信息格式是：
+```
+公司名称：微软
+```
+所以字符串info我用“：”分隔开（“：”的unicode编码就是u'\uff1a'），然后使用dict结构将前后信息储存起来。有意思的一点是：
+```python
+info = ''.join(texts)
+```
+这是拿空字符连接字符串的list，也就是texts.可以参考一下texts的格式：
+[u'\u80a1\u4efd\u7b80\u79f0\uff1a', u'\u767d\u6c34\u519c\u592b']
+关于这个问题，在stackoverflow上有讨论：
+[good-way-to-append-to-a-string](http://stackoverflow.com/questions/4435169/good-way-to-append-to-a-string)
+里面提到最简单的连接字符串的方法就是"+=", 但如果是像Java的 StringBuilder（我还不清楚）的做法的话，一般就是：
+```python
+l = []
+l.append('foo')
+l.append('bar')
+l.append('baz')
+
+s = ''.join(l)
+```
+所以，空字符连接的方法实际上就是把list里面的字符串连接起来。
+
+##模拟登陆相关API与参数问题
+接着要处理的问题就是Python的网络API，实现模拟登陆，提交表单的功能。
+在网上有许多说明，[这个博客](http://wuchong.me/blog/2014/07/16/use-python-login-borrow-account/)说得就挺好的，但是使用了外部的requests模块。由于嫌安装模块麻烦，所以，我只好另想办法。
+```python
+cj = cookielib.CookieJar()
+opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
+login_data = urllib.urlencode({'username' : username, 'password' : password})
+resp = opener.open(login_url, login_data)
+```
+上面只使用了Python自带的库，首先获取一个保存cookie的对象，然后将一个保存cookie对象和一个HTTP的cookie的处理器绑定，再创建一个opener，将保存了cookie的http处理器打开。最后向目标URL进行post表单操作。
+###为什么要cookie?
+由于HTTP是无连接的状态协议，但是客户端和服务器端需要保持一些相互信息。有了cookie，服务器才能知道刚才是这个用户登录了网站，才会给客户端访问一些页面的权限。
+###参数设置
+之前，一直困扰我的是参数的设置。后来，我才明白最重要的其实还是从浏览器看相关信息，这个图片就解释得很好：
+![Info](http://ww1.sinaimg.cn/mw690/81b78497jw1eiepcju7vuj20yw0gogoo.jpg)
+最主要的还是要找到我们要请求的URL（上面的红线指出的部分）以及我们要post的表单数据（上面红框部分）。注意到，我在实际的操作中没有drop,type,n等量，所以没有列出。但是，username与password的名称一定要和浏览器捕捉到的请求中的变量名一致。（这个页面是在浏览器登陆提交表单时捕捉到的）
+获得要提交的数据后，通过urlencode函数将数据进行编码，然后才能送到open的函数里面进行post请求。
+[新浪微博登陆](http://www.crazyant.net/796.html)，这篇博文讲解了利用python 模拟登陆微博账号的步骤，并附了源码，比较详细。
+##中文编码处理的问题
+我在table函数里面得到的返回值是一个dict结构，dict的每一个键值对都是unicode的形式编码的。如果我想找到“公司名称”对应的值的话，就应该将“公司名称”进行unicode转码。因为中文的编码格式一般是GBK，所以这里还要将中文进行转码：
+```python
+'公司名称'  ## '\xb9\xab\xcb\xbe\xc3\xfb\xb3\xc6', GBK
+'公司名称'.decode('gbk')  ##u'\u516c\u53f8\u540d\u79f0', unicode
+```
+另外，向网站提交表单的时候，如果是中文的话还是需要GBK编码。
+###一些参考阅读
+[也谈 Python 的中文编码处理](http://in355hz.iteye.com/blog/1860787)，这篇博文讨论得很详细，就是感觉写的心得，有点乱。
+[UNICODE,GBK,UTF-8区别](http://www.cnblogs.com/cy163/archive/2007/05/31/766886.html)，这篇博文讲的是unicode,gbk等编码的区别
+
+最后感叹一句，还是图样呀！

@@ -1,0 +1,83 @@
+---
+date: 2015-03-13 17:11
+status: public
+tags: Data_Analysis_With_R
+title: LinearRegression在R中的应用
+---
+
+[TOC]
+Linear regression我最早在机器学期基石课程里面学到，记忆中好像还自己用MATLAB编了一个简单的程序。
+##理论背景
+首先，这里先回顾一下linear regression的理论背景：
+我们的问题是，已知数据$ {(\mathbf x_1,y_1),(\mathbf x_2,y_2)...,(\mathbf x_n,y_n)}$，$y \in \mathbf R$。那么在已知$\mathbf x_{n+1}$的条件下，要求预测$y_{n+1}$的值。我们的目标是最小化$E_{out}$，在VC维度合适的条件下，我们可以用$E_{in}$来代替。所以，我们想要：
+```mathjax
+\min_{\mathbf w}E_{in}(\mathbf w)=\frac{1}{N}||\mathbf{Xw-y}||
+```
+通过计算梯度，我们可以得到：
+```mathjax
+\nabla E_{in}(\mathbf w)=\frac{2}{N}\bigg(\mathbf{X^TXw-X^Ty}\bigg)
+```
+令梯度为0，就可以得到:
+```mathjax
+\mathbf{w_{LIN}=\big(X^TX\big)^{-1}X^Ty}
+```
+我们称$\mathbf{\big(X^TX\big)^{-1}X^T}$为伪逆矩阵(pseudo-inverse)，通常记作$\mathbf X^+$。当然，这个解只有在括号里面的矩阵可逆才行。对于不可逆的情形，会有其他方法定义伪逆矩阵。总之，最后的解就是$\mathbf{w_{LIN}=X^+y}$。这样的话，我们要预测的$y_{n+1}$就等于$\mathbf{X^+yx_{n+1}}$。
+##在R语言中的简单应用
+线性回归问题据说在20世纪初就已经提出来来解决了，所以R语言里面有现成的函数可以调用。基本方式就是：
+```R
+#single variable
+lm(y~x, data)
+#multiple variable
+lm(y~x1+x2, data)
+#full variable
+lm(y~ ., data)
+#full data except x
+lm(y~.-x, data)
+```
+通过summary函数，我们可以看到模型的详细信息：
+![output](http://7u2m8l.com1.z0.glb.clouddn.com/Rout.png)
+Residuals是指在使用该模型的预测的$y$值与每个数据的真实$y$值之间的差值。最重要的是那些Coefficients: Estimate就是估计的系数（权值），后面是一些统计量。t value要越大越好，表示该系数越重要，而后面的Pr则越小表示该系数越重要，最后的星星也是表征系数的重要性，星星越多则越重要。
+下面还有multiple R-squared以及Adjusted R-squared。其中multiple R-squared会随着变量的增多而变大，表示的是对数据的拟合程度越好。但是有些变量并不重要或者存在冗余的情形，所以又提出了调整的R方，可以用来衡量模型的好坏（不是单纯的从数据拟合的角度）。
+##一些技巧
+###处理缺值
+观测数据可能存在缺值的情况，一种方法是主动拿某种方法把数据补全，另外一种方法就是去除掉缺值。对于某个数据pisaTrain,去除掉有缺值的观察记录的方法是：
+```R
+pisaTrain = na.omit(pisaTrain)
+```
+###安装没有的包
+R的库函数很多，有时标准库里面没有，就需要自己安装。方法也很简单，比如说安装"zoo"包：
+```R
+install.package("zoo")
+#load the library(not loaded after install by default)
+library(zoo)
+```
+###非线性的模型
+有时，数据并不能简单地通过线性模型拟合，有可能要加入更复杂的函数，从而使模型更为强大：
+```R
+#build the model with latat and its square
+lm.fit2=lm(medv~lstat + I(lstat^2), data)
+#build the model with polynimial transformation(max 5 orders)
+lm.fit5 = lm(medv~poly(lstat, 5), data)
+#using log scale of latat to build the model
+lm.fitlog = lm(medv~log(lstat), data)
+#interaction terms, using lstat+age+lstat:age for the model(I guess ":" means multiply)
+lm(medv~lstat*age ,data)
+```
+###自动构建模型
+为了模型的简单（变量少）但是又有效，我们需要一个折中。这个折中在统计学上称之为：[Akaike information criterion (AIC) ](http://en.wikipedia.org/wiki/Akaike_information_criterion)。这个在R里面很容易做，只要一个step函数就好了，参数就是某个模型：
+```R
+step(climateLM)
+```
+###模型的比较
+要获取模型之间的差异，可以：
+```R
+#compare models
+anova(lm.fit, lm.fit2)
+```
+###R的函数表示
+```R
+function () {
+	print("Hello, world!")
+}
+```
+还有两个话题（处理无序的类别属性与时间序列数据）留在下一篇博文里讲。

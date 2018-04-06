@@ -1,0 +1,66 @@
+---
+date: 2015-07-17 16:42
+status: public
+title: 'Jun Zhu'
+---
+
+#<font style="font-family:Georgia">Jun Zhu</font>
+* Master Student
+* School of Computer Science, Xi'an Jiaotong University
+* Address: mail box 1548, Xi'an Jiaotong University, Xi'an, Shaanxi, China, 710049
+* E-mail: <a href="mailto:jszhujun2010@126.com">jszhujun2010@126.com</a>
+* My Resemu: [English version](/_attachment/about/CV_v2_e.pdf),
+[Chinese version](/_attachment/about/CV_v2_c.pdf)
+
+##Research Interests
++ Machine Learning & Data Mining
++ Static Program Analysis 
+
+##Education
++ Master student,  Xi'an Jiaotong University, China
+    * Computer Science Department, Sep. 2014 - now
+    * Advisor: [Prof. Qinbao Song](http://gr.xjtu.edu.cn/web/qbsong)
++ B.E., Xi'an Jiaotong University, China
+    * Information Engineering Department, Sep. 2010 - Jun. 2014
+
+##Intership
++ Didi
++ Tencent
++ Threatbook
+
+##Project Experience
++ Recommendation System, [Tianchi Competition](http://tianchi.aliyun.com/competition/introduction.htm?spm=5176.100066.333.5.D1Fjjt&raceId=1),  Apr. 2015 - Jun. 2015
+    * Data mining competition, TB scale data involved, held by Alibaba.
+    * 282th/7186
+    * Together with Liming Lei, [Kaiyu Hou](http://www.kyhou.com/)
++ Text Mining Project, [Kaggle Competition](https://www.kaggle.com/c/15-071x-the-analytics-edge-competition-spring-2015), Apr. 2015 - May. 2015
+    * Predicting which New York Times blog articles will be the most popular
+    * Held by MIT edx course, The Analytics Edge
+    * 257th/2923, on public board
+    * 186th/2329, on private board
+    
+##MOOC Certificates
+Excellent courses from the top universities all over the world.
++ Coursera Part
+    + [Data Analysis and Statistical Inference](https://www.coursera.org/maestro/api/certificate/get_certificate?course_id=973726) By Duke University
+    + [Machine Learning Techniques](https://www.coursera.org/maestro/api/certificate/get_certificate?course_id=972774) By National University of Taiwan
+    + [Artificial Intelligence](https://www.coursera.org/maestro/api/certificate/get_certificate?course_id=973039) By National University of Taiwan
+    + [Algorithms: Design and Analysis, Part 2](https://www.coursera.org/maestro/api/certificate/get_certificate?course_id=972334) By Stanford University
+    + [Algorithms: Design and Analysis, Part 1](https://www.coursera.org/maestro/api/certificate/get_certificate?course_id=971469) By Stanford University
+    + [Compilers](https://www.coursera.org/maestro/api/certificate/get_certificate?course_id=972209) By Stanford University
+    + [Machine Learning Foundations](https://www.coursera.org/maestro/api/certificate/get_certificate?course_id=971428) By National University of Taiwan
++ EDX Part
+    + [Introduction to Big Data with Apache Spark](https://s3.amazonaws.com/verify.edx.org/downloads/e4c5729a184f4a3a9979eaaa886f1273/Certificate.pdf) By UCB
+    + [Systematic Program Design - Part 1](https://s3.amazonaws.com/verify.edx.org/downloads/fc0e7c9bd11b47a1bb65c573f946cb40/Certificate.pdf) By UBC
+    + [The Analytics Edge](https://s3.amazonaws.com/verify.edx.org/downloads/98847ebd39e84fcc92486f8f03f27499/Certificate.pdf) By MIT
+    + [Introduction to Computational Thinking and Data Science](https://s3.amazonaws.com/verify.edx.org/downloads/8a6b138a1208473cb25a1dda01cedcbd/Certificate.pdf) By MIT
+
+##Skills
++ Programming: Python, C/C++, Java
++ Machine Learing & Data Mining: R, Python Pandas + Scikit-learn, Spark MLLib
+
+##Honors
++ Siyuan Scholarship, Xi'an Jiaotong University, 2011, 2012
+
+##Social Activities
++ Volunteer of recruiting office, Xi'an Jiaotong University, 2012 - now

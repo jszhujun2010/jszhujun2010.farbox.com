@@ -1,0 +1,42 @@
+---
+date: 2015-03-28 09:54
+status: public
+tag: StatisticalInference
+title: 假设检验
+---
+
+[TOC]
+##假设检验， p-value, significance
+假设检验不仅在实际的科学实验中用得多，甚至当时在上机器学习技法课程的时候，有一道题的两个选项的数值比较接近，老师还使用假设检验来判断数值之间差异的显著性（significance）。那么假设检验到底要解决什么问题呢？
+###一个实例
+假设在一个公司里面男女员工的升职情况如下：
+![promotion](http://7u2m8l.com1.z0.glb.clouddn.com/promotion.png)
+可以很明显地发现，男性员工被提拔的比例是0.88，而女员工的提拔比例却只有0.58。那么很显然的问题就产生了：公司是否存在性别歧视呢？
+我们可以把问题这样看：这组数据的产生是偶然的吗？如果是偶然的话，那么就不存在性别歧视。那么怎么解决这个问题呢？就是假设检验！
+###一般过程
+假设检验，顾名思义，就是要先提出假设，然后利用科学的方法进行验证。这让我想起了胡适先生说的“大胆假设，小心求证”的名言。
+假设分为两个部分，一个我们称之为Null hypothesis, 用课上的话说就是"there is nothing going on"，用到上面的例子上来看就是数据的产生是偶然的，不存在性别歧视。另外一个称之为Alternative hypothesis,类似的，表示假设"there is something going on"，存在歧视。
+好，有了假设，我们就要通过科学的方法来验证假设。这里有两个假设，如果我们的方法得出结论说数据产生是by chance的话，我们就fail to reject null hypothesis,否则就reject null hypothesis. 那么用什么方法来验证假设呢？
+###验证方法
+课上讲了两种方法，一个叫做simulation，另一个则是使用理论的方法（比如使用中心极限定理）。
+####simulation
+simulation很简单，就是做模拟实验。对应到上面的例子，可以拿一些poke牌，24张表示男性，24张表示女性。洗牌后将牌反扣，随机选择35正牌，统计男女数量的差异。通过大量反复的实验（歧视可以计算机来做），得出男女数量差异的结果，从这个结果中统计男女比例差超过0.3的比例。结果发现这个比例很小（through a threshold，其实这个仔细想想大量重复实验的结果应该显示男女无差），因此我们reject null hypothesis，数据显示还是存在性别歧视的。
+####中心极限定理
+通过CLT，我们知道大量样本的统计量会存在高斯分布的情形，下面以均值为统计量为例，简述CLT在假设检验中的应用。
+首先，我们要提出问题，进行假设，然后通过实验的方法对假设进行检验。举个例子，我们猜测总体的均值大于3。对应到假设检验中，我们要两个假设。null hypothesis是从怀疑的角度提出的，所以我们说均值等于3，而alternative hypothesis则是均值大于3：
+```mathjax
+H_0 : \mu = 3 \\
+H_A : \mu > 3
+```
+有了假设后，我们就要对总体进行抽样，比如得到样本的均值为3.2，标准差为1.74，采样数目为50。联系到CLT的内容，假想多次（从我们假设的总体）抽样后我们有一个理想均值数据的正态分布曲线，数据的均值就是我们假设的3，数据的标准差可以用CLT的关系确定，$\text{sd} = \frac{\sigma}{n}$,由于$\sigma$未知，我们就拿采样的数据的标准差$s$代替。这样，我们就得到$\text{sd}$为0.246。而我们的采样数据作为观测值，数据（均值）为3.2，所以问题就变成来这个观察值是否正常。我们来看一下正态分布曲线：
+![ht](http://7u2m8l.com1.z0.glb.clouddn.com/ht.png)
+下面就引入一个重要的概念：p-value。p-value的定义就是:
+```
+P(observed or more extreme outcome|null hypothesis is true)
+```
+对于到上面的例子就是$P(\bar{x} > 3.2|H_0:\mu=3)$，实际上就是对应上图的阴影部分的面积。那么p-value的物理意义是什么呢？既然p-value表示的是当null hypothesis为真的时候我们得到观察数据（observed or more extreme outcome）的概率，如果这个概率大于一个阈值的话，我们就认为$H_0$很有可能是真的，结果就是fail to reject null hypothesis。这个阈值我们称之为signficance level.
+#####单边假设与双边假设
+单边假设与双边假设的区别在于alternative hypothesis的形式，对于单边假设，alternative hypothesis的通常形式都是$\mu > 3$，也就是说我们只对特定的一个方向感兴趣。而双边假设一般是$mu \ne 3$的形式，这样的话我们就要考虑两种情形，也就是$mu > 3$和$mu < 3$，这样的话计算p-value的时候我们就要把积分范围扩展到观察值一侧的加上观察值关于$\mu$对称一侧。
+####significance level与confidence level
+这两者实际上讲得是同一个事情，但是从两个不同的角度看的问题。significance level就是事先制定好的要同p-value比较的阈值，一个常见的值就是5%。对于单边假设，confidence level就是1-2*significance level（因为关于均值对称的部分还有一半）,也就是90%，表示我们有90%的自信度证明假设是正确的。对于双边假设，confidence level则是1-significance level（这是因为双边假设计算p-value的时候两边都计算了）。
+这一部分可能还选哟找些书来深入理解一番

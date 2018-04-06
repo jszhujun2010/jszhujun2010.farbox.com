@@ -1,0 +1,40 @@
+---
+date: 2015-01-18 19:28
+status: public
+tags: MLT_Note
+title: 'Hard Margin SVM'
+---
+
+[TOC]
+ 说起SVM，词对我来说早已不陌生了，早在学习《模式识别》课程的时候就听说过这个词。但当年讲完perceptron learning algorithm后，我也就没有继续往后学了，所以我只知道这种方法应该就是与PLA有关系，其它就不懂了，以至于某同学说“SVM你肯定懂”的时候，我竟不好意思地低下了头。
+ 好了，废话少说，下面进入正题。下面的图片是我对SVM作的简陋的小结，接下来的文章，将分别进行介绍。本文将从最简单的hard margin SVM讲起。
+![SVM](http://7u2m8l.com1.z0.glb.clouddn.com/kf.png)
+
+#问题提出
+ 回忆当时，最早介绍机器学习的时候，我们最原始的问题就是binary classification, 最简单的方法就是在线性可分的条件下，找到一个超平面(hyperplane)将两类点分开，就像下图一样：
+![linear separable](http://7u2m8l.com1.z0.glb.clouddn.com/ls.png)
+ 当时的问题是找到这样一个hyperplane就可以了，但现在的问题是，这样的超平面事实上可能会有无数条！那么哪一个才算是最好呢？下图给出了几个例子：
+![different hyperplane](http://7u2m8l.com1.z0.glb.clouddn.com/1.png)
+ 上图从左到右决策边界(hyperplane)到训练数据的距离依次变大。从直觉上讲，明显是第三个图更好。直观上分析，如果决策边界离数据点越远的话，将来测试数据离边界可能也会远一些。也就是说，如果将来测试数据即使有噪声的话，由于决策边界里数据远，该数据分类错误的可能性就变得更小。
+ 那么，现在的问题就是找到一个超平面，使之到数据点尽可能远。用数学语言表示，就是：
+![original](http://7u2m8l.com1.z0.glb.clouddn.com/f1.png)
+ 抱歉，这里由于式子有带你复杂，直接将课程slide截图了。总之，就是要找到一个超平面满足上面的条件即可。下面就是将上面复杂的表达式推导成能被求解的形式。
+#问题推导
+ 由于W,b可以伸缩(因为超平面方程左右可以除以一个系数，仍然成立)，那么我们就可以人为地设定到超平面最近的点距离为W的长度，那么问题就变成了：
+![transform](http://7u2m8l.com1.z0.glb.clouddn.com/2.png)
+ 再稍稍变形，成为比较熟悉的形式：
+![common](http://7u2m8l.com1.z0.glb.clouddn.com/3.png)
+ 上式很显然，从模的倒数变成平方的形式，最大最小也转变了一下。但是有一点要注意，原来是最小的分数为1，现在条件是所有的分数都大于等于1，看来条件放松了一点，但由于W,b可以伸缩，这样写实际上还是等价的。
+ 到现在为止，问题几乎就要被解决了，因为上面就是数学上已经早被研究过的问题，在凸优化的书上称之为QP(quadratic programming)。事实上matlab等工具早已集成解决的solver（可能与这里的参数上略有不同，后面有机会进行补充），下面将问题稍作整理，适合程序解决这个问题：
+![compare](http://7u2m8l.com1.z0.glb.clouddn.com/4.png)
+ 对应系数，代进solver即可，具体可见[台大MLT, page21](https://d396qusza40orc.cloudfront.net/ntumltwo/lecture_slides/201_handout.pdf)。
+#理论解释
+##SVM背后与regularization的关系
+ 回忆一下，什么是regularization?当年在machine learning foundation的时候，我们有了特征转换的工具后，为了防止overfitting的问题，在解决问题的时候，加上一些约束。下表给出了其余SVM的比较：
+![Regularization and SVM](http://7u2m8l.com1.z0.glb.clouddn.com/6.png)
+ 可以发现，其实二者很像，只不过二者最小化的和约束条件是相反的。另一个角度看，二者就是要把训练误差与W的长度都考虑进去。SVM还可以看成一种特殊的regularization，这里的约束就是为了抵抗测量误差而存在的。
+##SVM与VC dimension
+ VC dimension在这里将是不严格的，但可以提供另一种视角看待SVM：
+![Vc](http://7u2m8l.com1.z0.glb.clouddn.com/7.png)
+ 上图描述了N=3的条件下所有的dichotomies，但由于边界宽度的限制，那些只可能有窄窄的边界的dichotomy就不会存在了，这样的话VC dimension就减小了，换句话说，模型的复杂度就减小了(better generalization)。
+ 好了，hard margin SVM 先讲到这里，上面推导的结果直接求解复杂度很高，下篇文章将针对这个问题进行分析。

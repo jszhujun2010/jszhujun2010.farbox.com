@@ -1,0 +1,110 @@
+---
+date: 2015-05-16 20:55
+status: public
+tags: Data_Analysis_With_R
+title: Clustering
+---
+
+[TOC]
+聚类问题应该都挺熟悉的，这里主要写的是R在k-means与层次聚类上的应用。最后谈到的是如何利用聚类来更好地分类（这个问题好像在讲RBF network的时候，使用k-means寻找prototype的时候就有所涉及了）。
+
+##层次聚类
+首先看一下怎么利用R来读取txt文件：
+假设我们有“movieLens.txt”的文件，没有表头，只有一行一行的数据（以"|"为分隔符），每一行表示某个电影的信息，比如ID, title, IMDB评分等等。
+```R
+#read txt
+movies = read.table("movieLens.txt", header=FALSE, sep="|",quote="\"")
+
+#add column names
+colnames(movies) = c("ID", "Title", "ReleaseDate", "VideoReleaseDate", "IMDB", "Unknown", "Action", "Adventure", "Animation", "Childrens", "Comedy", "Crime", "Documentary", "Drama", "Fantasy", "FilmNoir", "Horror", "Musical", "Mystery", "Romance", "SciFi", "Thriller", "War", "Western")
+
+#remove unnecessary variables
+movies$ID = NULL
+movies$ReleaseDate = NULL
+movies$VideoReleaseDate = NULL
+movies$IMDB = NULL
+
+#remove duplicates
+movies = unique(movies)
+```
+
+接下来就要进行聚类了，我们考虑的是欧式距离。
+```R
+#compute distances
+distances = dist(movies[2:20], method = "euclidean")
+
+#hierarchical clustering
+clusterMovies = hclust(distances, method = "ward") 
+
+#plot the dendrogram
+plot(clusterMovies)
+
+#assign points to clusters(consider 10 clusters)
+clusterGroups = cutree(clusterMovies, k = 10)
+```
+
+如果需要查看每一个簇的信息：
+```R
+#compute the percentage of movies in each genre and cluster
+
+tapply(movies$Action, clusterGroups, mean)
+tapply(movies$Romance, clusterGroups, mean)
+
+#we can repeat this for each genre. If you do, you get the results in ClusterMeans.ods
+
+
+#find which cluster Men in Black is in.
+subset(movies, Title=="Men in Black (1997)")
+clusterGroups[257]
+
+#create a new data set with just the movies from cluster 2
+cluster2 = subset(movies, clusterGroups==2)
+
+#look at the first 10 titles in this cluster:
+cluster2$Title[1:10]
+```
+
+##K-means
+主要命令就是kmeans, 假设我们的数据叫做healthyVector：
+```R
+#specify number of clusters
+k = 5
+
+#run k-means
+set.seed(1)
+KMC = kmeans(healthyVector, centers = k, iter.max = 1000)
+str(KMC)
+
+#extract clusters
+healthyClusters = KMC$cluster
+KMC$centers[2]
+```
+
+##Normalize data
+由于数据的数量级不同，我们需要对数据进行统一处理（比如统一到(0,1)，将数据均值变0，方差变1）。在R里面：
+```R
+#load the package
+library(caret)
+
+#normalized data frame called "airlinesNorm"
+preproc = preProcess(airlines)
+airlinesNorm = predict(preproc, airlines)
+```
+
+##使用聚类，更好地分类
+有些时候，数据里面可能存在着多种分布，直接使用一个模型来描述是不会准确的，所以我们需要首先根据相似性将数据进行聚类，然后对每一类分别构建模型进行分类。这里我们假设有Train与Test两个数据，因为要聚类，首先要把类标签去掉，得到LimitTrain与LimitTest, 在经过Normalization得到normTrain, normTest. 然后再normTrain上进行聚类得到一个object km. 然后我们将原始的数据(train, test)根据聚类模型分成几个簇，分别求模型：
+
+```R
+#load the library
+library(flexclust)
+
+km.kcca = as.kcca(km, normTrain)
+
+#get cluster on train
+clusterTrain = predict(km.kcca)
+
+#get cluster on test
+clusterTest = predict(km.kcca, newdata=normTest)
+
+#use subset on the original data, get several data(train and test), train several models and test them
+```

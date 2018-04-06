@@ -1,0 +1,90 @@
+---
+date: 2015-08-03 08:53
+status: public
+title: LLVM&Clang Makefile
+---
+
+[TOC]
+前面的tutorial简单地介绍了Clang的三种基本用法，ClangLib, LibTooling以及Plugin。听说VS下可以使用Clang，但我还没有去研究过这一点，目前基本上还是在Linux下使用Clang/LLVM。所以，我们一定要学习如何编写Makefile，不然上好的程序摆在那里都没办法跑起来。
+这里，我使用的编译器为g++。按理来说，使用clang++也没有问题，但是我好像遇到了一些未知的问题，所以只好作罢。
+##基本的g++编译选项与基本规则
+假设我们有一个C++源文件helloworld.cpp，使用g++最简单的方式就是直接在命令行输入：
+```bash
+$ g++ -o helloworld helloworld.cpp
+```
+当然，g++还有更多的编译选项，这里枚举出几个：
++ -g 打开调试功能（有利于使用GDB调试）
++ -Wall warning相关
++ -O 优化相关
++ -o <name> 指定输出文件的名称
++ -c 输出object文件(.o)
++ -I<include path> 指定包含某个路径
++ -L<library path> 指定某个library的路径
++ -l<library> 链接到lib<library>.a
++ -fno-rtti 关闭"run time type identification"的功能
+更多选项可以参见g++相关文档，应该不难找到。
+正如上面的例子所示，使用g++进行编译，一般就是"g++ -o obj_file src_file <other options>"所谓形式。而Makefile实际上就是为了简化命令行的输入，所以本质上还是围绕着编译命令的。
+
+##简单的Makefile示例
+书写LLVM/Clang的Makefile，与一般的Makefile有所区别，这里有一份很好的[官方文档](http://llvm.org/docs/MakefileGuide.html#makefile)，但是还是需要具体的例子阐述一下。下面就是一个具体的例子，完整的文件见[这里](https://github.com/jszhujun2010/Clang-Basic-Tutorial/blob/master/LibExample/Makefile)：
+首先，我们要准备这样几样东西：
++ CXX: 表示我想用的编译器
++ CXXFLAGS: 编译选项
++ LLVM_CXXFLAGS: LLVM针对CXX的选项
++ LLVMLDFLAGS: LLVM的链接选项 
+```bash
+CXX := g++
+CXXFLAGS := -fno-rtti -O0 -g -std=c++11
+# Your own LLVM build path
+LLVM_DIR := /home/workspace/Tools/build
+# LLVM C++ options and LLVM link options
+LLVM_CXXFLAGS := `${LLVM_DIR}/bin/llvm-config --cxxflags`
+LLVMLDFLAGS := `${LLVM_DIR}/bin/llvm-config --ldflags --libs --system-libs`
+```
+
+准备好源文件，目标文件(OBJTECTS)，可执行文件(EXES)以及库的名称。大家可以脑补"SOURCES:.cpp=.o"的写法的意思，大概就是指定OBJTECTS的文件名与SOURCES相同（但后缀不同）。
+```bash
+SOURCES = test1.cpp 
+OBJECTS = $(SOURCES:.cpp=.o)
+EXES = $(OBJECTS:.o=)
+CLANGLIBS = \
+				-lclangTooling(and more)
+```
+接下来就是重头戏，也就是编译链接的命令。首先解释一下里面的符号，all表示一个预设的目标，意思是要完成这个目标，我们需要OBJECTS和EXES。下面一行则是指定由.o文件生成（无后缀）可执行文件的规则。一般a:b的形式中，左边a表示目标名称，而右边b则表示依赖的文件。至于这里的"%"简写，大家也可以开脑洞想清楚，大概就是相同前缀的互相匹配吧。
+注意下面的写法，下面命令里面没有编译选项（CXXFLAGS），只有一些链接选项。这是为什么呢？这里正是使用了Makefile的自动推导功能，它可以将目标文件自动依赖于同名的源文件！也就是说"g++ -c"的命令Makefile自己生成了。此外，`$@`表示目标文件， `$<`表示第一个依赖（如果有多个以来的话），而另外还有一个`$^`表示所有依赖。
+所以，Makefile自动推导出编译命令，我们要做的只是指明最下面的链接命令。
+```bash
+all: $(OBJECTS) $(EXES)
+%: %.o
+	$(CXX) -o $@ $< $(CLANGLIBS) $(LLVMLDFLAGS)
+```
+下面是一种更稳妥的写法，不通过自动推导，手动指定编译链接选项：
+```bash
+$(EXES):  $(SOURCES)
+    $(CXX) $(CXXFLAGS) $(LLVM_CXXFLAGS) $(CLANG_INCLUDES) $^ \
+		$(CLANG_LIBS) $(LLVMLDFLAGS) -o $@
+```
+最后，我们需要指明清除生成的相关文件。
+```bash
+clean:
+	-rm -f $(EXES) $(OBJECTS) *~
+```
+##Plugin的Makefile实例
+给Plugin写Makefile和前面大致相同，但是由于Plugin生成的是一个（动态链接？）库，所以编译的时候需要一些附加的选项。这里是一个完整的[Plugin Makefile](https://github.com/jszhujun2010/Clang-Basic-Tutorial/blob/master/PluginExample/Makefile)。下面将一些与前面的不同点指出：
+首先,编译选项中需要添加一个-fpic，意思是要生成PIC(position independent code，详情可见CSAPP)，这是shared library的一个特征。
+```bash
+PLUGIN_CXXFLAGS := -fpic
+```
+然后链接选项需要更改：
+```bash
+# Plugins shouldn't link LLVM and Clang libs statically, because they are
+# already linked into the main executable (opt or clang). LLVM doesn't like its
+# libs to be linked more than once because it uses globals for configuration
+# and plugin registration, and these trample over each other.
+LLVMLDFLAGS_NOLIBS := `${LLVM_DIR}/bin/llvm-config --ldflags`
+PLUGIN_LDFLAGS := -shared
+```
+Plugin不能链接到LLVM的库（原因见上面的注释），然后Plugin的链接选项要指明为shared。
+然后就是原来的.o的后缀要改为.so的后缀，其它和前面的例子都差不多。
+##小结
+本文给出了一些LLVM/Clang下的Makefile实例，同时也对Makefile的一些格式内容进行了一番介绍。如果是一个非常大型的工程，直接手写Makefile会非常痛苦，此时AutoMake的工具就很重要了。将来有机会，再写一篇博文对AutoMake进行探讨。

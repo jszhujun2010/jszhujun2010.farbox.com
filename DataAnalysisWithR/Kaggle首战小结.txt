@@ -1,0 +1,63 @@
+---
+date: 2015-05-23 10:23
+status: public
+title: Kaggle首战小结
+---
+
+MIT的Analytics Edge实在是有良心，在7周课程的结束之后，专门在kaggle上举办了一个比赛，也让我迈向了kaggle界的第一步。本文将针对比赛问题，我的思路，以及网友的思路进行分析总结。
+#问题描述
+问题要解决的是，预测某篇New York Times的博客是否会popular，是否popular的标准是文章下面是否有大于25条评论。数据有这样的属性：
++ NewsDesk: 是一个类别属性，有business, culture, foreign等类别
++ SectionNme: 也是一个类别型属性，有opinion, arts, thch等类别
++ SubsectionName: 同样是一个类别属性，有education, samll business等类别
++ Headline: 文章的题目
++ Snippet: 文章的一小部分
++ Abstract: 文章摘要
++ WordCount: 文章单词总数
++ PubDate: 出版日期，精确到秒
++ UniqueID: 文章的ID
+训练数据有6532篇文章，测试数据有1870篇文章。比赛有一个排行榜，比赛期间使用的是public榜，测试了测试数据的60%, 比赛成绩使用的是另外的40%的数据，然后构建了一个private榜。测试的标准是AUC(我在前面的[博文](http://jszhujun2010.farbox.com/post/dataanalysiswithr/aucde-jie-shi)里有介绍)。
+
+#简要分析
+这是个文本分析的问题，关键是要构建出有效的属性出来（也就是大家常说的特征工程），而这里面需要进行文本处理的有Headline, Snippet与Abstract，数量有点多，如何能够提取出有效信息很关键。当数据集构建完成之后，可以先用一些常见的分类算法测试一下，如logistic regression, random forest等，最后可能还可以进行模型融合（ensemble）。
+#我的思路与做法
+本来想把代码整理出来的，但由于直接在R的命令行里跑的，好像历史记录残缺了，这里只能文字描述了。
+比赛主办方给提供了很好的示例代码，一个实例是直接采用wordcount来预测是否popular，另外一个则是直接将Headline进行文本处理（前面[博文](http://jszhujun2010.farbox.com/post/dataanalysiswithr/nlpchu-bu)讲过），提取一些关键的单词作为属性，然后加上wordcount的属性。最后使用简单的logistic regression构建模型。
+##我的做法
+首先就是训练数据属性的构建，我也是参考了实例代码，将headline的关键单词以及wordcount加进去了，然后几个类别型的属性也加进去了。我还将Abstract的文本进行了处理，加进数据集里面。好像Snippet的文本与Abstract差不多，所以直接抛弃。这样数据集就初步构建好了，但是有两点还是有优化空间的，那就是文本处理的时候，稀疏度的选择。我做的时候也就是随便选取的。。。
+后来看到论坛上有许多然观察到log(wordcount+1)好像与popular的关系特别明显，还有weekday以及hour，于是我又将这些属性加进了数据集。最后，我又做了一件（不应该的）事情：肉眼过了属性，将一些我认为没用的属性（一些单词，非常常见）去除掉了。
+###遇到的问题
+由于处理类别属性的时候，时常会发生：train里面存在的类别在test里面却没有，另外出现的顺序也不一样。论坛上有人提出了level的方法，但是不解决问题。一个好的做法就是，首先将train与Test进行以及类别型属性的处理合并（merge之后出现NA即可），统一进行文本然后分开。网友提供了一个优雅的做法：
+```R
+# you have to install this first if you don't have it
+library(dplyr) 
+merged <- bind_rows(train, test)
+
+#And you may separate them anytime you want:
+train <- subset(merged, !is.na(Popular))
+test <- subset(merged, is.na(Popular))
+```
+###算法选择
+首先肯定是logistic regression, 我没有直接交裸逻辑回归的结果，而是通过step命令（之前[博文](http://jszhujun2010.farbox.com/post/dataanalysiswithr/linearregression)里介绍过），选择效果最好的部分属性出来。后来，我又尝试了random forest。最后，我还尝试将逻辑回归模型和random forest结合起来，通过调整二者的比重，调出最优的auc，然后按这个权重交结果。
+##结果
+在public榜上：
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/k1.png)
+在private榜上：
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/k2.png)
+这结果，看上去还可以，但比起大神们差距还不只是一点点，下面就具体分析一下大神们怎么做的。
+#大神的方法
+##A大神的做法
+A大神在榜上排名前20，虽然代码公布出来了，但是由于还不是很熟悉R语言，愣是没怎么看懂。这里只能简单说一下他的思路。
+###特征构建
+特征工程最重要的一步，他将日期里的信息（包括年月日，时分秒，以及是否周末，是否美国节假日（这我怎么知道。。。））都提取出来作为属性。
+时间序列：上一篇文章发表后过了多久
+文本的细致处理：针对文章headline,abatract等，提取长度，是否有数字，是否有大小写，是否有特殊符号，是否含有年份等等。
+聚类分析：将文章进行聚类，然后将簇的信息加入数据属性（作者还将簇个数限制到20个，同时使用了chi-square test来检测聚类是否有意义）。
+###模型建立
+模型主要用了bayesglm和randomforest，但是属性的使用上面比较讲究。最后，他还将模型进行了融合。
+##B大神的做法
+大神B排名24，方法没有大神A那么隐晦，主要是对数据进行了细致处理。他对文本里是否存在"yes"/"no"，是否有数字，是否有宗教词语，是否有问句等等，一共罗列了不止20条这样的属性。最后测试了glm, rf, gbm, svm四种分类方法。使用cross validation选出最好的参数，最后还进行了模型的融合。
+
+可以发现，大神们都进行了细致的文本分析，对特征的把握十分到位，这大概就是所谓“特征工程”的重要性吧。另外，就他们对语言的熟悉程度而言，绝非新手。因此，<b>
+无论是数据的整合，特征的提取还是分类算法的使用或者CV之类的，要学的地方还有很多</b>。
+最后，贴一个Python[代码](http://nbviewer.ipython.org/gist/mattsco/8dddf256244fb7d47d47)，是论坛上发现的，先mark一下。

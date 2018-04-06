@@ -1,0 +1,68 @@
+---
+date: 2015-03-04 17:33
+status: public
+tags: MLT_Note
+title: 'Matrix Factorization'
+---
+
+[TOC]
+本讲我感觉主要是两大内容，一是矩阵分解模型的简单推导与解释，第二则是最优化矩阵分解的两个算法：交替优化与SGD.
+这里讲到的是一类特殊的问题，就是所谓的推荐系统(Recommender System).这是怎样的一个问题呢？
+![model](http://7u2m8l.com1.z0.glb.clouddn.com/MF_1.png)
+这里的数据是：各个用户对各个电影的评分，现在要求得到的skill就是预测某个用户对某个电影的评分大小。那么，这与以前的问题区别在哪里呢？想一下，以前我们的数据都是一堆的特征，然后进行回归分析，这里却没有那么多特征。有的是什么呢？
+考虑数据$D_m$,也就是关于第$m$个电影的数据：
+```mathjax
+\mathbf{\left \{(\tilde {x_n}=(n), y_n=r_{nm}):\;\;\; user\; n\; rated \;moive \;m\right\}}
+```
+这里的特征很不明显，有人称$\mathbf {\tilde {x_n}=(n)}$为抽象特征(abstract feature).在这里面，想user ID等直接就是categorical feature,目前好像除了决策树外还没有哪个能处理。所以这里想到的方案就是将类别特征转为数值(numerical)特征。
+这里使用的转换方法就是binary vector encoding:考虑血型的问题，这是明显的类别属性，但是为了将其转化为数值属性，我们对其进行编码：
+![Encoding](http://7u2m8l.com1.z0.glb.clouddn.com/MF_3.png)
+这样，向量中哪一个不为0就表示是哪一种属性，将来在计算的时候那些为0的数据直接相乘也就不起作用了，这样我们原来的类别属性现在就可以进行乘法运算了，也就变成了数值属性。
+![Data](http://7u2m8l.com1.z0.glb.clouddn.com/MF_2.png)
+什么意思呢？我们一共有$M$个电影，$N$个观众。那么，从电影的角度来看数据的话，第$m$个电影（大约）有$N$个评分，这是一个集合，也就是上面大括号里的部分。对于集合里每一个数据$x_n$，表示使用binary vector encoding,将原有数据变成一个长度为$N$的向量，向量中只有一位不为0，而且哪一位不为0就表示这是哪一个用户。$y_n$则是对应的第$n$个观众对第$m$个电影的评分。
+图片中的联合数据表示将$y_n$看成一个向量，表示用户$n$对所有电影的评分。注意有些地方是问号，表示该用户没有对某个电影评分。
+##线性网络假设
+现在，要解决的问题是怎样构建一个模型来解决预测评分结果呢？考虑模仿神经网络进行feature extraction，这里提到了一个线性网络的假设（为什么这么想？不知道）：
+![Hypotheses](http://7u2m8l.com1.z0.glb.clouddn.com/MF_4.png)
+对于每个用户的来说：$\mathbf{h(x_n)=W^Tv_n}$,这里$\mathbf v_n$是$\mathbf V$的第$n$个column.所以，整体的假设就是：
+```mathjax
+\mathbf {h(x)=W^TVx}
+```
+现在就要学习$\mathbf V$以及$\mathbf W$.
+首先，我们先来分解开来看待上面的矩阵等式：
+![Transform](http://7u2m8l.com1.z0.glb.clouddn.com/MF_5.png)
+将$\mathbf{Vx}$看成一种特征转换，就得到一个列向量$\mathbf v_n$,$\mathbf v_n$再经过$\mathbf W$的第$m$行作用（内积），就得到$\mathbf r_{nm}$,也就是第$n$个观众对第$m$个电影的评分。所以，我们想要追求$\mathbf {r_{nm}=y_n \approx{w_m^Tv_n}}$.为什么这里是约等于呢？大概是有些电影有些观众没评分吧。
+下面看一个图示，理解一下上面的式子：
+![Formula](http://7u2m8l.com1.z0.glb.clouddn.com/MF_6.png)
+#矩阵分解的物理意义
+下面再来看一下这个转换，以及两个矩阵（向量）的物理含义：
+![Physical meaning](http://7u2m8l.com1.z0.glb.clouddn.com/MF_7.png)
+如上图所示：向量$\mathbf v$表示的是观众的喜好，而向量$\mathbf w$则是电影的特征，二者做内积，结果越大表示二者月相似（匹配），观众评分越高。这样，也就解释了上面的feature extraction!但是这里的特征是隐形的，抽象的，我们并不知道具体是什么，但直观上表示这么个意思。
+这种模型可以总结为：为了学习某个rating,我们先将其分解成两个参数（因子，factor），通过学习这些因子来学习预测rating.相似的模型也可以用来获取抽象特征。
+##最优化矩阵分解问题
+将错误定义为平方错误，可以得到我们要最优化的式子是：
+![Error function](http://7u2m8l.com1.z0.glb.clouddn.com/MF_8.png)
+这里有两组变量，怎么优化呢？正好前面提到了K-means算法也存在同样的问题，所以直接套用那个方法：alternating minimization.
+当$\mathbf v_n$固定的时候，要最优化错误，就相当于针对每部电影的数据分别做线性回归。当$\mathbf w_m$固定的时候，根据user与movie的对称性，也可以针对每个用户做线性回归。这种方法叫做"alternating least squares algorithm"。
+下面是算法概要：
+![alternating least squares algorithm](http://7u2m8l.com1.z0.glb.clouddn.com/MF_9.png)
+下面考虑两个问题。首先，初始化矩阵怎么做？通过就是采用随机数。第二，最后会收敛吗？这个在K-means里面也讲到过。因为我们在交替优化的过程中要求$E_{in}$要下降，而$E_{in}$是有一个下界的，所以收敛没有问题。
+##Linear Autoencoder与Matrix Factorization
+下图是一个比较：
+![Comparision](http://7u2m8l.com1.z0.glb.clouddn.com/MF_10.png)
+实际上linear autoencoder也是一种特殊的矩阵分解。
+##SGD最优化矩阵分解问题
+使用SGD,我们可以随机选择一个样本数据计算错误函数的梯度，聪哥更新参数。这样做很高效，也很简单，而且错误函数的类型不受限制。
+我们考虑错误函数(per example)：
+```mathjax
+\mathbf {err(user n,\; movie m,\; rating \; r_{nm})=(r_{nm}-w_m^Tv_n)^2}
+```
+计算梯度，我们有：
+![gradient](http://7u2m8l.com1.z0.glb.clouddn.com/MF_11.png)
+所以每个example的梯度正比于-(residual)(the other feature vector)
+下面就是整个算法：
+![SGD](http://7u2m8l.com1.z0.glb.clouddn.com/MF_12.png)
+据说SGD是大规模矩阵分解算法中最流行的的！
+##延伸阅读
+[Matrix Factorization Techniques for Recommender Systems (Koren et al.)](http://www2.research.att.com/~volinsky/papers/ieeecomputer.pdf)
+抽时间还是看看吧！

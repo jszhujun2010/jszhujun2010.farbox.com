@@ -1,0 +1,94 @@
+---
+tags: LLVM&Clang
+date: 2015-06-19 17:25
+status: public
+title: Clang Tutorial 第一部分
+---
+
+[TOC]
+最近接触到LLVM与Clang，发现这个貌似是未来编译器发展的趋势。我在网上看到一篇很不错的介绍LLVM/Clang的[博文](https://kevinaboos.wordpress.com/2013/07/23/clang-tutorial-part-i-introduction/)，这里尝试着将它翻译一下，并结合自身的使用经历将其代码验证一发。
+#什么是Clang
+最近几个月，我一直在用[Clang](http://clang.llvm.org/)。Clang是一个[LLVM编译工程](http://llvm.org/)的前端工具(frontend)。Clang可以解析及分析C语言家族（C, C++, ObjectiveC等等）的所有源代码，功能十分强大。
+如果要对C代码进行静态分析，我强烈推荐Clang，它比其他静态分析工具（如CIL）要高级得多，而且有着很好的文档。
+#Clang是如何工作的
+在大多数情况下，Clang会对源程序进行预处理（扩展开所有的宏），将代码解析成抽象语法树(AST)。预处理后的AST比原来的C代码更好处理，同时我们还可以很容易地参考到源C程序（译者注：就是说从AST反推回源代码）。事实上，Clang里面每种表示代码的数据结构(AST, CFG等等)都可以关联到源程序，这一点很有用（如重构）。
+如果我们需要分析或者更改源代码，Clang比LLVM更有用。使用LLVM意味着必须使用LLVM级别的中间代码（类似于汇编语言）。
+#Clang AST
+几乎所有的编译器和静态分析工具都使用AST来表示原本代码。Clang的AST非常复杂，但是学习不同的AST元素将会很有趣。这里是[Clang AST的简介](http://clang.llvm.org/docs/IntroductionToTheClangAST.html)，但是学习最简单的办法就是用一个具体的C程序，把转变后的AST结果打印出来看。
+一般来说，Clang AST由两个很flexible的类组成：<b>Decl</b>和<b>bStmt</b>。它们各自有很多子类，下面是一些例子：
+> [FunctionDecl](http://clang.llvm.org/doxygen/classclang_1_1FunctionDecl.html): 函数原型或者函数定义
+> [BinaryOperator](http://clang.llvm.org/doxygen/classclang_1_1BinaryOperator.html): 表达式，如(a+b)
+> [CallExpr](http://clang.llvm.org/doxygen/classclang_1_1CallExpr.html): 函数调用，如foo(x)
+
+大多数AST里面的类名字都很容易理解，如ForStmt, IfStmt以及ReturnStmt。通常使用google搜索像"Clang FunctionDecl"就可以得到相关的文档。
+#怎么使用Clang
+Clang可以几乎完全替代gcc, 而且它还提供内置的静态分析工具。作为程序员，我们可以通过三种方法使用Clang。
+首先，去看一下[Clang's own description](http://clang.llvm.org/docs/Tooling.html)。除此之外，我在下面将一些Clang接口之间的不同点指了出来。
+##Clang Plugin
+使用Clang Plugin，写出的代码本身就是插件。使用Clang Plugin的时候，我们不可以保留不同文件之间的全局信息和其它横跨多个文件的上下文信息。插件的运行是通过传递命令行参数给build system(比如Clang或者Make)，这就像在GCC中使用优化参数(比如"-o1")。在源文件分析前后，我们不能进行任何的custom task。插件的存在形式是一个动态链接库。
+##LibTooling(Clang Tool)
+使用LibTooling，代码本身是一个正常的C++程序，以正常的main()函数作为入口。LibTooling一般用来把程序的构建(build)过程与程序的分析过程分开。针对每个源程序都会生成相应的分析代码以及对应的AST，但同时还可以维护不同源代码文件的全局信息。由于程序有main()函数，我们还可以在分析源代码前后运行其它的任务。
+##LibClang
+当我们想要一个稳定的API的时候，LibClang是一个很好的选择。Clang变化很快，如果使用Plugin或者Libtooling，我们可能需要更新代码以应对Clang的变化。但如果需要在C++语言之外的地方调用Clang的API的时候，必须要使用LibClang。
++ 注意：LibClang不可以使用完整的AST（只能使用高层次的AST），而另外两个选择（Plugin与LibTooling）则可以。
+如果还是无法抉择的话，我推荐使用Libtooling interface，因为它最简单而且很好用。LibTooling能够像Plugin一样能够完整地使用AST，同时还不会丢掉源代码的全局信息。此外，设置LibTooling比Plugin更容易。
+
+#开始使用Clang
+现在我们已经知道Clang的一些基础知识了，现在就开始吧！这些指令在任何版本的Linux（可能Mac也可以）都可以使用，但我们是在Ubuntu上进行的测试（译者注：我是在Ubuntu15.04上进行的）。我们可以通过以下步骤来获取LLVM与Clang（译者注：下面是我根据[官方指导](http://llvm.org/docs/GettingStarted.html)进行的，经验证可行）：
+1. 下载安装[需求的包](http://llvm.org/docs/GettingStarted.html#software), 一个典型的Linux发行版这些包一般都有，除了subversion。
+
+2. 反复读[文档](http://clang.llvm.org/get_started.html)。
+
+3. 下载LLVM:
+    ```
+    cd where-you-want-llvm-to-live
+    svn co http://llvm.org/svn/llvm-project/llvm/trunk llvm
+    ```
+    
+4. 下载Clang:
+    ```
+    cd where-you-want-llvm-to-live
+    cd llvm/tools
+    svn co http://llvm.org/svn/llvm-project/cfe/trunk clang
+    ```
+    
+5. 下载Compile-RT:
+    ```
+    cd where-you-want-llvm-to-live
+    cd llvm/projects
+    svn co http://llvm.org/svn/llvm-project/compiler-rt/trunk compiler-rt
+    ```
+    
+6. 下载Test Suite Source Code[Optional]
+    ```
+    cd where-you-want-llvm-to-live
+    cd llvm/projects
+    svn co http://llvm.org/svn/llvm-project/test-suite/trunk test-suite
+    ```
+    
+7. 配置构建LLVM和Clang:
+一般使用[CMake](http://llvm.org/docs/CMake.html), 如果要使用其它的自动工具，见[Building LLVM with autotools](http://llvm.org/docs/BuildingLLVMWithAutotools.html)。注意，CMake需要安装。
+    ```
+    cd where you want to build llvm
+    mkdir build
+    cd build
+    cmake -G <generator> [options] <path to llvm sources>
+    ```
+这里generator我选择的是"Unix Makefiles", 至于其他选项可以参见具体的[文档](http://llvm.org/docs/GettingStarted.html)，common options我没有用，要用的话也可以参见前面的文档。
+
+8. 直接make就好了, check-all可以运行回归测试确保无误。
+    ```
+    make
+    #make check-all
+    ```
+整个安装过程将会很长，先去享受一顿美好的晚餐吧~
+为了测试安装的结果，到/build/bin下找到clang，在终端下输入：
+    ```
+    $ where-build-is/build/bin/clang --version
+    ```
+下面还可以使用Clang测试编译功能，编译[Hello World例子](http://groups.engin.umd.umich.edu/CIS/course.des/cis400/c/hworld.html)以取代gcc:
+    ```
+    $ where-build-is/build/bin/clang hello.c -o hello
+    $ ./hello
+    ```
+下面就可以真正使用CLang进行编码了~

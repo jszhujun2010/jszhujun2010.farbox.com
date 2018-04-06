@@ -1,0 +1,43 @@
+---
+date: 2015-01-22 20:38
+status: public
+tags: MLT_Note
+title: 'SoftMargin SVM'
+---
+
+[TOC]
+前面，在面对线性不可分的情形时，我们采取的是特征转换的方式，但是代价很高。而Soft-Margin SVM的原理就是，在分类的时候，允许部分出错（因为数据中本来就会存在噪声，那些妥协的数据有可能就是噪声，没有影响），我们还是在低维空间上进行运算。
+#问题定义
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/40.png)
+这里在原来问题的基础上，引入了变量$\zeta$，把那些不为$0$的$\zeta$，加入到目标函数中来对越界数据进行惩罚。
+##参数$C$的作用
+$C$在这里起到调节作用，如果$C$取得大的话，对应的$\zeta$就必须要小，就是要比较小的越界惩罚（less noise tolerance）；而如果$C$取得比较小的话，$\zeta$的范围就放松了，所以可以获得较大的边界。
+#问题求解（对偶问题）
+和前面一样，将问题化成其对偶形式：
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/41.png)
+根据拉格朗日乘数法的优化方法，得到最终的形式及其约束条件（KKT condition）：
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/42.png)
+#结果
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/43.png)
+##$b$的求解
+根据complementary slackness的条件：
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/44.png)
+只有选取那些free的support vector，使得$\zeta=0$，便可以求得：
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/45.png)
+#参数$C$的影响
+参数$C$越大，意味着less noise tolerance，如下图所示：
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/46.png)
+注意当$C$达到一定程度的时候，已经发生overfitting了。这里是高斯核函数的结果，所以在使用时一定要注意选择合适的参数$(\gamma,C)$，切不可overfitting!
+#Support vector的物理意义
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/47.png)
+这里support vector分为两种，一种是在边界上的，称之为free support vector；另一种则是在边界里的，称之为bounded support vector，其$\alpha$值为$C$。
+#模型选择的问题
+即使是高斯核函数的使用，也会有不少参数要进行选择，那么怎么方便地选择核函数呢？
+一般最常见得方法就是cross validation。通过一系列参数的设置，对应到相应的基础模型（线性、多项式、高斯......），然后将一部分数据进行训练得到模型，然后选择$E_cv$最小的那组参数。
+#一个有趣的结论
+当我们使用Leave one out cross validation的时候，可以得到一个错误上界。
+考虑一组数据，通过这组数据我们已经得到SVM算出的超平面。如果此时去掉一个非支撑向量的话，超平面是不会变化的。所以，在进行loocv的时候，非SV对错误的贡献为$0$，而SV对错误的贡献最大为$1$，所以平均下来错误不会超过SV的总个数。所以：
+```mathjax
+E_{loocv} \le \frac{\#SV}{N}
+```
+当然这只是一个上界，一般在CV很耗时间的时候，可以先通过这种方法将最危险的模型排除掉。

@@ -1,0 +1,33 @@
+---
+title: Jszhujun2010
+keywords: 
+avatar: /_image/avatar.jpg
+cover: /_image/cover.jpg
+posts_per_page: 
+post_content_type: markdown
+post_paragraph_indent: hard
+file_path: /
+show_toc: no
+mathjax: yes
+disqus: 
+duoshuo: 
+template_priority: self
+template_inherit: yes
+template_clone_allowed: yes
+autoreload: auto
+post_url_format: normal
+rpost: 6
+scripts_per_page: 
+scripts_for_doc: 
+auto_image: no
+comment: yes
+sync_by_3rd: no
+sync_by_3rd_public: no
+score_degree: 
+hidden_urls: 
+users: 
+domain: jszhujun2010.farbox.com
+domains:
+- jszhujun2010.farbox.com
+dns: 
+---

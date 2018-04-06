@@ -1,0 +1,64 @@
+---
+date: 2015-01-26 10:46
+status: public
+tags: MLT_Note
+title: 'Blending & Bagging'
+---
+
+[TOC]
+之前，我们学习的机器学习方法都是基于单个模型，这一次讲到的是集成学习，简单地讲，就是构建出多个学习模型，然后将多个模型的结果通过某种方式集成起来，得到最终的结果。
+##可能集成的方式
+假设已经得到$T$个学习模型$g_1,g_2,...,g_T$，那么最终的结果可以这样处理：
++ 选择validation时表现最好的假设（这个在当年学习cross validation的时候就学过了）：
+```mathjax
+G(\mathbf{x})=g_{t_*}(\mathbf{x}) \; with \; t_*=argmin_{t\in {1,2,...,T}}\;\; E_{val}(g_t^-)
+```
++ 均匀地混合所有的假设（也就是投票）
+```mathjax
+G(\mathbf{x})=sign\big( \sum_{t=1}^{T}1\cdot g_t(\mathbf{x})\big)
+```
++ 不均匀地混合所有的假设（有权重的投票）
+```mathjax
+G(\mathbf{x})=sign\big( \sum_{t=1}^{T}  \alpha_t\cdot g_t(\mathbf{x})\big) \;\;\; \alpha_t \ge 0
+```
+ 注意，这是包含前两种方案的，因为如果$\alpha_t=[[E_{val}(g_t^-) \;\;smallest]]$，就是第一种情况，而如果$\alpha_t=1$的话，就是第二种情况。
++ 有条件地混合所有的假设，就是说投票的权值与数据有关
+```mathjax
+G(\mathbf{x})=sign\big( \sum_{t=1}^{T}  q_t(\mathbf{x})\cdot g_t(\mathbf{x})\big) \;\;\; q_t(\mathbf{x}) \ge 0
+```
+这也包含了第三种情形，当$q_t(\mathbf{x}) = \alpha_t$时。
+## Uniform Blending
+Uniform Blending可以用来分类，也就是上面提到的$G(\mathbf{x})=sign\big( \sum_{t=1}^{T}1\cdot g_t(\mathbf{x})\big)$。现在考虑$g_t$,如果所有的$g_t$都一样的话，那么最终的结果跟没做投票一样。而如果$g_t$互相之间不同的话（多样性），根据少数服从多数的原则，最后的结果可能还会不错。
+类似的，uniform blending还可以应用到回归分析上，也就是$G(\mathbf{x})=\frac{1}{T} \sum_{t=1}^{T} g_t(\mathbf{x})$。这里还是期望有许多不一样的$g_t$。
+所以，如果我们有多样性的$g_t$的话，即使是最简单的uniform blending的效果也可能会比单个假设要好。
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/70.png)
+## bias and variance of uniform blending
+计算一堆模型$g_t$的错误期望，也就是$avg \big( (g_t(\mathbf{x})- f(\mathbf{x}))^2 \big)$,最终可以化简为：
+```mathjax
+avg \big(E_{out} (g_t) \big) = avg \big((g_t-G)^2 \big)+E_{out}(G)
+```
+其中$G$就是所以$g_t$最终平均得到的结果。假设存在一个理想的得到$g_t$的过程，每个模型使用的数据都是iid分布的，当我们重复无数次试验就会得到理想的模型：
+```mathjax
+\bar{g}=\lim\limits_{T \to \infty }{G}=\lim\limits_{T \to \infty }{\frac{1}{T} \sum_{t=1}^{T}g_t}= \mathbf{\varepsilon}_{D} A(D)
+```
+所以替换掉前面的$G$，就得到：
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/71.png)
+算法的误差期望是bias与variance的和，而我们使用uniform blending就是希望算法得到的$g_t$可以与$\bar{g}$接近，以减小variance，从而使模型更稳定，表现更好。
+###补充bias variance trade-off
+一般的，算法X的表现（error）可以写成：error(X) = noise(X) + bias(X) + variance(X)。在不考虑噪声的情况下，主要是偏差与方差的影响。偏差就是结果偏离理想结果的程度，而高偏差就意味着underfitting。方差则是指对数据的灵敏度，针对不同的数据会拟合出不同的结果，高方差意味着overfitting。下图就是一个简单的解释：
+![](http://qph.is.quoracdn.net/main-qimg-b4e2ae9d8778e2373bba6d7987c2bd62?convert_to_webp=true)
+##Linear blending
+就是要进行有权重的投票，关键在于计算权值，也就是求解最小化误差：
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/72.png)
+实际上就是一个两层学习的过程，先是计算出一堆线性模型，然后将这些线性模型对数据作用的结果看成新的数据(hypotheses as transform)，再进行二次学习(计算权值)。注意到这里$\alpha \ge 0$的约束其实是不必要的，因为如果我们某个权值计算下来小于0，那么说明这个对应的模型非常差，那么如果是分类的问题的话，就把分类结果反过来，模型的表现就会变得非常好，此时$\alpha$还是非负的（因为已经将模型的假设反过来了）。
+其实上面有个错误，那就是最优化$E_{in}$真的大丈夫？这样会使得VC dimension很高。所以，一般在使用的时候cross validation的方法，一堆模型来自于最小化$E_{train}$，而最后最小化的是$E_{val}$。
+###Any Blending
+前面采用的线性模型进行了两层学习，如果不是线性模型的话，就可以得到另一种方法，叫做any blending，也称之为stacking，这也是前面提到的第四种情形。当然，虽然any blending能力很强大，但是总是会有overfitting的危险。
+##Bagging
+前面提到diversity很重要，那么怎样获取不同的学习模型呢？
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/73.png)
+那么如何获得多样性的数据呢？下面就是经常提到的bagging(bootstrapping):
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/74.png)
+想法很简单，就是均匀地、带回放地抽取数据。其实这是有数学上严格的证明的，但太复杂了。
+bagging的方法通过多次抽取数据，分别构建模型，然后用所有的模型得到的结果进行投票(uniform blending)。由于这种方法是基于其它模型的，所以称之为meta algorithm，而其它算法称为base algorithm。
+当然，bagging表现良好有一个前提，也就是前面提到多次的diversity。换句话说，只有base algorithm sensitive to data randomness的话, bagging才能起效果。

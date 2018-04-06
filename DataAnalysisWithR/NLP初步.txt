@@ -1,0 +1,129 @@
+---
+date: 2015-05-16 18:30
+status: public
+tags: Data_Analysis_With_R
+title: NLP初步
+---
+
+[TOC]
+##问题来源与twitter
+早就听说过NPL(自然语言处理)是machine learning的一个重要分支，但我好像从来都没有处理过文本类型的数据。在Analytics Edge中刚好讲到这一部分内容，让我开阔了一下眼界。
+NPL针对的一个重要内容就是文本数据，包括一些电子邮件，文章，博客以及最近火起来的微博（当然，可能已经不火了）。那么处理这些数据可以做什么呢？我想，针对前面的集中文本数据，我们可以：
++ 电子邮件：过滤垃圾邮件
++ 博客与文章：预测是否popular（课程kaggle的比赛题）
++ 微博：舆情监测（好像不太应该耶）
+
+###数据的特征
+文本数据与普通的“表格”数据差别很大，主要表现在下面一些方面：
++ Loosely structured(结构性不明显)
++ Textual(文本)
++ Poor spelling, non-traditional grammar(针对英文可能会有拼写错误，一些新奇语法)
++ Multilingual(混有多种语言，比如中英混杂)
+
+###如何获取数据
+这个可能有几种途径，一个就是已有的公共数据集，但研究的需求可能比较特殊，在公共数据集上可能找不到。像twitter与新浪微博可能会提供一些API，这样就可以直接获取一些微博语料。最后一招就是自己写个爬虫，这个现在大家一般都使用python来做，一些库已经做得很好了（CS109应该有讲，希望后面能学到）。
+
+很多情况下文本数据要有标签，比如标记某条语句的类型（是positive,negtive或者是neutral），但它们天生都没有标签，怎么办？自己标记太麻烦了，一种方法就是花钱雇人打标签。亚马逊在这方面走在前面：有一个叫做Amazon Mechanical Turk的平台，专门给一些闲着没事的人一些文本数据打标签，好像是志愿活动。
+
+###如何理解文本数据（预处理）
+一般地，我们处理文本数据只能简单地统计每个单词（针对汉字可能是词语）出现的次数。我们将文本看成a bag of word，不考虑其内部的结构（如果要考虑的话，就很复杂了）。例如：
+```
+This course is great. I would recommend this course to my friends.
+```
+我们可以得到：
+(This, 2), (course, 2), (great, 1), ..., (friends, 1).
+实际处理的时候，英文里面同一个单词可能存在单复数，时态的变化，我们仍需要将它们看成相同的单词。此外，stop words(the, is, at, which)可能出现的频率很高，但对我们分析文本没有作用，所以需要去掉。
+下面接结合R语言对文本的预处理进行分析。
+
+
+##处理文本的一般流程
+首先我们需要两个处理文本的库：
+```R
+install.packages("tm")
+library(tm)
+install.packages("SnowballC")
+library(SnowballC)
+```
+
+然后我们要构建语料库(corpus)，假设我们的数据为tweet.csv，而且带有标签，文本在tweet$tweets里面。文件包含许多条tweets，每个都会标记一个标签：
+```R
+#be careful of "stringsAsFactors=FALSE" 
+tweets = read.csv("tweets.csv", stringsAsFactors=FALSE)
+
+#create corpus 
+corpus = Corpus(VectorSource(tweets$Tweet))
+
+#convert to lower-case
+corpus = tm_map(corpus, tolower)
+
+#convert corpus to a Plain Text Document
+corpus = tm_map(corpus, PlainTextDocument)
+
+#remove punctuation
+corpus = tm_map(corpus, removePunctuation)
+
+#look at stop words, in the library
+stopwords("english")[1:10]
+
+#remove stopwords and apple
+corpus = tm_map(corpus, removeWords, c("apple", stopwords("english")))
+
+#stem document(same words, different form)
+corpus = tm_map(corpus, stemDocument)
+```
+
+这样，预处理阶段就结束了，小结一下整个流程（针对英文）：
++ 创建语料库（从VectorSource开始，将每个文档看成一个词向量）
++ 大小写统一
++ 转成纯文本
++ 去除标点符号
++ 去除停顿词（来自已有词库）
++ 统一单词形式，stem（单复数，时态）
+
+下面就要生成我们可以处理的dataframe了。
+```R
+#create matrix
+frequencies = DocumentTermMatrix(corpus)
+
+#look at matrix 
+inspect(frequencies[1000:1005,505:515])
+
+#check for sparsity
+findFreqTerms(frequencies, lowfreq=20)
+
+#remove sparse terms
+sparse = removeSparseTerms(frequencies, 0.995)
+
+#convert to a data frame
+tweetsSparse = as.data.frame(as.matrix(sparse))
+
+#make all variable names R-friendly
+colnames(tweetsSparse) = make.names(colnames(tweetsSparse))
+
+#add dependent variable
+tweetsSparse$Negative = tweets$Negative
+```
+
+这一部分主要做了：
++ 生成文本矩阵（每一行表示一个文本，每一列表示一个属性，表示某个单词出现的频率）
++ 去除稀疏的单词
++ 生成dataframe
++ 添加标签
+
+接下来就是使用正常的分类算法对数据进行分析了，这里就不再赘述了。
+
+##趣例：Jeopardy与IBM的Watson
+2005年的时候，IBM的一个小组开始研制一个可以参加Jeopardy的机器。Jeopardy是一个有趣的答题游戏，游戏胜利（答题结果最好的）将会得到丰厚的报酬。六年后，IBM的机器造出来了，并且参加了这个比赛，最终赢得了胜利。这个机器叫做Waston, 拥有3000个处理器以及200 million pages的数据库（比如维基百科）。下面就简单地描述一下Watson的工作原理：
+###问题分析
+首先得到题目的时候，Waston要对文本进行分析，得出问题想要的信息到底是什么。这个在NPL里面很困难，需要对句子进行很复杂的分析，比如指代关系，问题答案的词性以及对象的关系检测等等。
+
+###生成假设
+在明白了题目的意思之后，就需要从数据库里面找一些候选答案了（可能根据词性，以及已有语料的相关性等等）。
+
+###给假设评分
+得到很多候选答案之后，我们要对答案进行评估。一个简单的方法就是将候选答案联系到答案的上下文，放到google里面搜索，如果搜到的结果越多，就说明正确的可能性越大。当然，实际过程中，Watson的评分系统据说包含了50余种方法。
+
+###最终得到排序结果
+最终要得到结果，需要将评分后的结果进行整合。可能存在两个相同的答案，但是表达方式不同，这样就要整合，重新计算分数，最后再将答案进行排序。
+
+当然，Watson的胜利离不开大量算法的融合以及前期的训练，在文本分析，假设生成，以及评分排序都需要前期的训练支持。

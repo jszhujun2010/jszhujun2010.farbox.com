@@ -1,0 +1,138 @@
+---
+date: 2015-05-17 13:10
+status: public
+tags: Data_Analysis_With_R
+title: 'Visualization with R(part1)'
+---
+
+[TOC]
+本文所有例子均来自Analytics Edge与哈佛的CS109。
+#Data Visualization
+数据可视化可能大家在小学的时候就接触过，比如学习了简单的统计后，要求画直方图（条形图）或者画折线图。但是，大学里许多老师对这个内容好像很不重视。其实，数据可视化已经发展出了一套比较完整的理论。本文将结合Analytics Edge以及哈佛的CS109对数据可视化进行一番小结，并结合R语言给出一些实例。
+
+##Effective Visual Attributes与一些误区
+数据可视化研究的祖师好像是Jacques Bertin，他给这个领域创造了一套理论。在数据的图形化表示理论(Bertin, Semiology of Graphics, 1967)中，他把图形分成两个部分，一个叫做marks，也就是每个数据用什么来标记，他给出了三种方法：points,lines,areas，也就是我们常说的点线面。图形的另外一部分就是channel，用来区分不同种类的数据，他总结了其中不同的思路。下图就是这个理论的实例：
+![Jacques Bertin](http://7u2m8l.com1.z0.glb.clouddn.com/VD_1.png)
+那么既然有了这样一套理论，怎样选择有效的可视化属性呢？
+有人说，好的数据图应该能够既简单又准确地表达出数据的关键信息，而差的则将传递错误的信息或者模糊的信息。首先来看一个例子：
+![Bad example](http://7u2m8l.com1.z0.glb.clouddn.com/VD_3.png)
+这幅图到底问题在哪里呢？
+首先，饼图通过角度来辨别数量大小，但有一些数据数量很小，在饼图里面画不出来，所以一些数据就丢失了。其次，除了可以表示类别之外颜色在这里没什么意义，反而容易混淆（靠得太近，一些颜色分不清楚）。最后，这个立体的饼图立体化不但没有任何意义，而且会引起世界上的错觉。
+下面来看一下专家总结出来的可视化有效性的度量：
+![Effectiveness](http://7u2m8l.com1.z0.glb.clouddn.com/VD_2.png)
+可以看见，颜色本身没什么表现力，但颜色的深浅（包括灰度，亮度，饱和度等）在一定程度上可以表现Order的属性。下面是一些实例：
+好的例子
+![good](http://7u2m8l.com1.z0.glb.clouddn.com/VD_4.png)
+不好的例子
+![bad](http://7u2m8l.com1.z0.glb.clouddn.com/VD_5.png)
+
+还有一些常见的问题，首先是scale的问题。scale的问题在于，许多图形（直方图，或者折线图）起点的大小不设置为0，这样就会产生下面的结果：
+![scale issue](http://7u2m8l.com1.z0.glb.clouddn.com/VD_6.png)
+看上去最大的高度是最小的高度的两倍，但实际上只差了不到30厘米，这种情况叫做scale distortion.
+
+第二，在CS109上，那个老师特别反对立体的统计图形，无论是pie chart还是histogram，因为3D效果没有任何意义，反而会给人带来视觉上的误差。
+第三个问题就是画直方图的时候不要加一些没用的背景，图形要简单明了，有时坐标轴的线也不要加，就像下图从左上到右下的改进：
+![Avoid Chartjunk](http://7u2m8l.com1.z0.glb.clouddn.com/VD_7.png)
+这个问题叫做"Avoid Chartjunk".
+然后还有一些小细节，比如折线图的两条折线的夹角不要超过45度，图形不要画得太密等等。
+最后一个问题是stacked chart的问题，见下图：
+![stacked chart](http://7u2m8l.com1.z0.glb.clouddn.com/VD_8.png)
+这个图形的问题在于，我们不能看出每一部分数据随时间的变化趋势。与其这样，还不如就老老实实地对每一部分数据画一个折线图。
+
+#ggplot的使用
+许多人都会推荐使用ggplot来画图，当然python的matplotlib也可以画出精美的图形，风格与ggplot差不多，但好像还差一点。
+##基本用法
+假设我们有一个数据WHO, 现在要画其中两个属性的散点图：
+```R
+#install and load the ggplot2 library:
+install.packages("ggplot2")
+library(ggplot2)
+
+#create the ggplot object with the data and the aesthetic mapping:
+scatterplot = ggplot(WHO, aes(x = GNI, y = FertilityRate))
+
+#add the geom_point geometry
+scatterplot + geom_point()
+```
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/DV_27.png)
+
+```R
+#make a line graph instead:
+scatterplot + geom_line()
+```
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/DV_28.png)
+
+```R
+#redo the plot with blue triangles instead of circles:
+scatterplot + geom_point(color = "blue", size = 3, shape = 17) 
+```
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/DV_29.png)
+
+```R
+#another option:
+scatterplot + geom_point(color = "darkred", size = 3, shape = 8) 
+```
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/DV_30.png)
+
+```R
+#add a title to the plot:
+scatterplot + geom_point(colour = "blue", size = 3, shape = 17) + ggtitle("Fertility Rate vs. Gross National Income")
+```
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/DV_31.png)
+
+
+##一些高级用法
+```R
+#color the points by region: 
+ggplot(WHO, aes(x = GNI, y = FertilityRate, color = Region)) + geom_point()
+```
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/DV_32.png)
+
+```R
+#color the points according to life expectancy:
+ggplot(WHO, aes(x = GNI, y = FertilityRate, color = LifeExpectancy)) + geom_point()
+```
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/DV_33.png)
+
+```R
+# Is the fertility rate of a country was a good predictor of the percentage of the population under 15?
+ggplot(WHO, aes(x = FertilityRate, y = Under15)) + geom_point()
+```
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/DV_34.png)
+
+```R
+# Let's try a log transformation:
+ggplot(WHO, aes(x = log(FertilityRate), y = Under15)) + geom_point()
+```
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/DV_35.png)
+
+下面考虑回归模型，拟合数据
+```R
+#simple linear regression model to predict the percentage of the population under 15, using the log of the fertility rate:
+mod = lm(Under15 ~ log(FertilityRate), data = WHO)
+
+#add this regression line to our plot:
+ggplot(WHO, aes(x = log(FertilityRate), y = Under15)) + geom_point() + stat_smooth(method = "lm")
+```
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/DV_36.png)
+
+
+```R
+#99% confidence interval
+ggplot(WHO, aes(x = log(FertilityRate), y = Under15)) + geom_point() + stat_smooth(method = "lm", level = 0.99)
+```
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/DV_37.png)
+
+
+```R
+#no confidence interval in the plot
+ggplot(WHO, aes(x = log(FertilityRate), y = Under15)) + geom_point() + stat_smooth(method = "lm", se = FALSE)
+```
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/DV_38.png)
+
+
+```R
+#change the color of the regression line:
+ggplot(WHO, aes(x = log(FertilityRate), y = Under15)) + geom_point() + stat_smooth(method = "lm", colour = "orange")
+```
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/DV_39.png)

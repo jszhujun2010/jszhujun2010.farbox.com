@@ -1,0 +1,63 @@
+---
+date: 2015-03-03 09:57
+status: public
+tags: MLT_Note
+title: 'Neural Network'
+---
+
+[TOC]
+神经网络当时也学过一些，但是也就是很糊涂地就过去了，所知道的就是它很慢。现在重新学了一遍之后才有点明白，当时真是囫囵吞枣呀。没有辅助一定的练习，对NN的认识一定很难到位。
+##Perceptron与NN
+我们都知道，如果一个数据是线性可分的，那么使用感知器算法一定没问题。但是，正如slides里面提到的，如果有两个假设$g_1,g_2$，实际的模型是$g_1$XOR$g_2$，那么怎么实现呢？
+现在，我们将感知器看成下面（网状）的形式：
+![perceptron](http://7u2m8l.com1.z0.glb.clouddn.com/NN_1.png)
+实际上就是一个网状结构，包含两层的权重。上面说它解决不了异或的问题，那么我们可不可以增加改网络的层数来解决呢？事实上，可以发现：
+```mathjax
+XOR(g_1, g_2)=OR(AND(-g_1, g2), AND(g_1, -g_2))
+```
+而AND与OR都可以用感知器解决，所以最后可以得到：
+![XOR](http://7u2m8l.com1.z0.glb.clouddn.com/NN_2.png)
+这是一个多层的网络，也就是我们要学的神经网络。我们可以将感知器看成最简单的NN。
+
+
+##NN的形式
+###NN的大致架构
+下图就是NN的大致结构，先是输入经过权重作用，经过tanh的转换，变成第二层，一直到最后进行线性组合。
+![NN](http://7u2m8l.com1.z0.glb.clouddn.com/NN_3.png)
+结构的特征如下所示：
+![NNS](http://7u2m8l.com1.z0.glb.clouddn.com/NN_4.png)
+那么为什么要用tanh进行转换呢？其实这是在类比sign的作用。我们知道perceptron的输出一般都要经过正负号的作用（二元分类），所以这里也这样做。但是由于sign难优化，这里选取了容易优化的tanh，在后面的昨夜里可以发现tanh的导数很好求。
+最后，我们假设的形式就是：
+![h](http://7u2m8l.com1.z0.glb.clouddn.com/NN_5.png)
+所以整个学习过程就是要训练处权重。
+
+
+##物理意义简述
+好，这里简单地看一下NN的物理意义。其实，在我看来，这就是网上所说的“花样调参”，就是通过更复杂的函数拟合出适合数据的假设。但这里，老师讲到NNet是pattern extraction with layers of connection weights，大概就是说使用这些权重来摘取隐藏的一些模式。
+
+##算法及推导
+我们要推导出最优的权重，也就是要最小化错误。假设$e_n=(y_n-NNet(x_n))^2$,那么要活的最优的权值就是要计算$\frac{\partial e_n}{\partial w_{ij}^{(l)}}$.
+我们知道：
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/NN_9.png)
+下面就是计算那个偏微分：
+![derivation](http://7u2m8l.com1.z0.glb.clouddn.com/NN_6.png)
+左边考虑的是特殊情况，是对最后一层的微分。右边考虑最前面的微分，发现产生了一个$\delta_j^{(l)}$.对应到最后一层，$\delta_1^{(L)}=-2\big(y_n-s_1^{(L)}\big)$这个值怎么求呢？
+通过链式法则，我们可以得到：
+![delta](http://7u2m8l.com1.z0.glb.clouddn.com/NN_7.png)
+所以，$\delta_j^{(l)}$可以从$\delta_k^{(l+1)}$得到，也就是说可以从后往前算！这就是所谓的后向传播！
+算法流程如下：
+![NNA](http://7u2m8l.com1.z0.glb.clouddn.com/NN_8.png)
+这里提到一个叫mini-batch的方法，就是说1到3可以并行地做很多次，然后求$x_i^{(l-1)} \delta_j^{(l)}$的平均值，在第四步进行更新。
+
+
+##Optimization 与 Regularization
+一般多层问题都不是convex的，很难达到全局最优，而且GD通常只给出局部最优解。初始权重最结果影响很大，一般建议使用比较随机的比较小的初始权值。总之，NNet很难最优化，但实物上挺常用的。
+###VC维度
+$d_{vc}=O(VD)$，这里V是神经元个数，D是权重的个数。
+所以，如果神经元多了模型的能力及强大了，但更容易overfitting!
+###Regularization
+基本的选择就是weight-decay(L2) regularizer $\Omega(\mathbf w)=\sum(w_{ij}^{(l)})^2$.
+我们要注意的是，这里要把L2进行微小的修正，使得无论大小权重得到regularizer都适中（基本的L2对大权重regularized得大，小的则小）。也就是这样：
+![weight-elimination](http://7u2m8l.com1.z0.glb.clouddn.com/NN_10.png)
+称为weight-elimination regularizer.
+另外一个Regularization，称为early stop.一个直接的解释就是，当$t$增加的时候就会得到更多的权值组合，在解空间上可能走得越远。所以，为了避免这样，就应该让t小一点，也就是early stop.那么何时停止呢？只有用validation了，也就是试出来。

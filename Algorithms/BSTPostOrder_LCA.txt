@@ -1,0 +1,133 @@
+---
+date: 2017-08-27 17:26
+status: public
+title: 后序遍历与最低公共父节点
+---
+
+去年某次面试的时候，被问到一个很常见问题：如何寻找二叉树的最低公共父节点？
+讲道理，这个问题之前见过，也能写出来一种方法，但有些囫囵吞枣，时间复杂度怎么考虑没有想过，于是面试时分析了一下，感觉是指数级别的复杂度，面试官就直接没叫写这道题。。。一直想要反思一下，这一过就是一年多！
+最低公共父节点的问题描述在这里就不负数了，其函数接口大概是这样：
+```cpp
+TreeNode* LCA(TreeNode *root, TreeNode *p, TreeNode *q) {}
+```
+#top-down模式
+当时看到某本书上的方案是所谓的top-down模式：从根节点出发，判断左右子树是否包含p,q节点。如果左子树已经包含了p,q节点，那就继续往下一层，直到找到最低的那一层位置；右子树也是类似的。而一旦发现一个在左子树上，一个在右子树上，那当前结点就是LCA了。这里面有一个辅助函数：判断一棵树里面是否包含一个节点，其实也就是树的遍历。其代码大概是这样：
+```cpp
+TreeNode* LCA(TreeNode *root, TreeNode *p, TreeNode *q)   
+{  
+    //both p,q in root->left
+    if (hasNode(root->left, p) && hasNode(root->left, q))
+        return LCA(root->left, p, q);  
+    //both p,q in root->right
+    if (hasNode(root->right, p) && hasNode(root->right, q))  
+        return LCA(root->right, p, q);  
+    return root; 
+}  
+  
+/*in-order to judge where tree contains p*/  
+bool hasNode(TreeNode* root, TreeNode* p)  
+{  
+    if (!root) return false;  
+    if (root == p)  
+        return true;  
+    return hasNode(root->left, p) ||  hasNode(root->right, p);  
+}  
+```
+关于该方法的时间复杂度，确实是较高，因为存在这样的情况：在找到p,q的时候，当前的父节点不是最低的，这时候还需要在该父节点重新进行一些遍历，确认p,q是在其左子树还是右子树上，这样就出现了冗余的搜索过程，提高了复杂度。
+首先，hasNode本质上就是一个树遍历的过程，复杂度为$O(n)$。假设第一次找到了p, q，最坏已经花了$2n$的时间了；然后发现还要对下一层及逆行递归。这时需要遍历的量已经少了一遍，因此最坏是$\frac{1}{2}n$。所以，总的复杂度可以写为：
+```mathjax
+\text{time}=2*(n+n/2+n/4+...) =2*(\frac{n*(1-1/2^m)}{1-1/2}) \le 4n
+```
+之前把复杂度想高了，看来也就是$O(n)$级别的，但常数项比较高，因为引入了冗余的遍历过程。
+#链表交点
+那一种更直接的思路是直接寻找p,q两点，添加额外空间记录从根节点到p,q的路径。这样就是两个链表了，然后就是寻找两个链表分叉点了。
+下面的代码来自[九章算法](http://www.jiuzhang.com/solutions/lowest-common-ancestor/)，写得非常C的感觉，用了指针数组，不过过程不复杂。
+```cpp
+class Solution {
+public:
+    /**
+     * @param root: The root of the binary search tree.
+     * @param A and B: two nodes in a Binary.
+     * @return: Return the least common ancestor(LCA) of the two nodes.
+     */
+    int Atop, Btop, top;
+    TreeNode *a[100000], *b[100000], *ans[100000];
+    bool find;
+    void inorder(TreeNode *node, TreeNode *A, int flag) { 
+        if (find==true)
+            return;
+        if (node == NULL)
+            return;
+        ans[++top] = node;
+        if (A == node) {
+            find = true;
+            if (flag == 0) {
+                Atop = top;
+                for (int i = 1; i <= top; ++i)
+                    a[i] = ans[i];
+            } else {
+                Btop = top;
+                for (int i = 1; i <= top; ++i)
+                    b[i] = ans[i];
+            }
+            return;
+        }
+
+        inorder(node->left, A, flag);
+        if (find) return;
+            
+        inorder(node->right, A, flag);
+        if (find) return;
+          
+        top --;
+        
+    }
+    TreeNode *leastCommonAncestor(TreeNode *root, TreeNode *A, TreeNode *B) {
+        // write your code here
+        top = 0; find = false;
+        inorder(root, A, 0);
+
+        top = 0; find = false;
+        inorder(root, B, 1);
+  
+        Atop = min(Atop, Btop);
+        Btop = Atop;
+
+        while (a[Atop] != b[Btop]) {
+            Atop --;
+            Btop --;
+        }
+        return a[Atop];
+    }
+};   
+```
+当然，面试官想要看的也不是这个，这个的时间复杂度是两个点的搜寻，和链表分叉点搜索的时间总和，也就是$2n+h$，其中$h$是树的高度，还是慢了！
+#后序遍历--bottom up
+那么有没有one-pass的方法呢？这就要点题了：后序遍历！（这个也是面试官提醒的一句话，可惜悟性太低了。。。）前面第一种方法是所谓的top-down的做法，会引入很多冗余搜索。那如果我们从叶子结点网上搜索的话，是不是就可以省去这些冗余搜索呢？而后序遍历就是bottom-up的方式！说起来，后序遍历学了，还真是没有直接应用过呢。。。先序可以直接遍历一棵树，中序可以用来二叉搜索树的排序，后序那么复杂，可以干啥呢》这道题就给出了答案。
+下面来看一看思路：
+```cpp
+TreeNode* LCA(TreeNode* root, TreeNode* node1, TreeNode* node2) {
+    if (root == null || root == node1 || root == node2) {
+        return root;
+    }
+    // Divide
+    //case1: (left || right) && !(left && right) => left/right is LCA
+    //case2: (left && right) => left/right just p/q
+    TreeNode* left = LCA(root->left, node1, node2);
+    TreeNode* right = LCA(root->right, node1, node2);
+    // Conquer
+    if (left && right) {
+        return root;
+    } 
+    if (left) {
+        return left;
+    }
+    if (right) {
+        return right;
+    }
+    return NULL;
+}
+```
+跟着后序遍历的思路，我们先在左子树上找，然后再在右子树上找，如果都不是的话，那当前节点就是LCA了。这个代码有一个难理解的地方，那就是分治寻找的时候，返回的节点的含义不全是LCA的意思。当在左子树上或者右子树上找到了LCA的时候，那么返回值层层回溯，这个很好理解。这也就对应着(left || right) && !(left && right)的情形，直接返回left或者right。那么当左子树上有一个(left != NULL)，右子树上有一个的时候(right != NULL)，返回什么呢？代码里面写的是返回当前节点！然后告知父节点，我的左子树找到了一个节点点，右子树找到了一个节点。那么LCA必然就是当前节点了，这样就返回当前节点。
+再回到递归代码的两个要素：递归停止条件和递推公式上来。程序不停地递归搜索，到什么时候截止呢？首先，如果到了叶子节点，肯定需要进行回溯；其次，已经找到了p或者q也就可以不再继续往下走了，这是因为：如果找到了p，q在p的下面，此时直接返回p没有问题，p就是LCA；如果q在另一个分支上面，也没有问题，利用(left || right) && !(left && right)的逻辑处理就可以了。当然，这里有一个前提：p,q一定都那个在root这棵树上，所以可以简化一下逻辑。
+关于时间复杂度，由于只要一次遍历，所以只要$O(n)$。

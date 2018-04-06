@@ -1,0 +1,65 @@
+---
+tags: MLT_review
+date: 2015-09-11 16:32
+status: public
+title: PLA&Pocket
+---
+
+最近想着将《机器学习基石》以及《机器学习技法》相关的内容整理一下，并将相关的代码整理到github上，也算是一个复习的过程吧。
+[TOC]
+#背景回顾
+PLA, 也就是perceptron learning algorithim（感知器学习算法），最早好像是在1958年就已经被提出来了（很可惜，Google了之后没发现免费的文章）。虽然现在好像现在使用该方法的人不多了，但是我感觉这个方法影响了后来的许多方法，如Logistic regression, SVM以及Neural Network。
+机器学习的一个最基本的问题就是分类，可以说整个台大的机器学习课程基本上都是围绕分类来讲的（后面只涉及到一点聚类和推荐系统的问题）。要说分类，现在看来还是属性为纯数值型的数据分类最顺手。我们可以将数据像想成为$n$维空间中的中的一个点，（二元）分类的问题就可以转化为在空间中找到一个超平面（hyperplane）将数据分到超平面的两边，PLA就是最早做的这件事情。
+那么为什么说PLA影响了后来的许多方法呢？
++ 首先PLA只是在线性可分的情况下work，对于线性不可分的情形，可以用greedy的方法，尽量让$E_{train}$小，于是诞生了pocket（紧接着会讲）；又或者可以将低维数据映射到高维空间上去，使得数据变得线性可分。
++ 此外，PLA只能找到某个超平面，SVM利用large margin的概念又改进出了最优超平面。
++ PLA还可以看成一个没有隐含层（hidden layer）的神经网络，可以视为神经网络最最基本的结构，所以神经网络有时也被称为MLP（multi layer perceptron）。
++ PLA也涉及到一个linear aggregation的常见思路，在后面的Linear regression以及logistic regression甚至在集成(ensemble)的方法里面也有被大量使用。
++ 最后，许多机器学习问题都可以看成优化目标函数的过程，优化过程中的最常见的gradient descent方法也可以运用在PLA上。
+
+#方法概要
+前面已经提到了我们对纯数值型数据，可以将其看成空间里的点，然后找到一个超平面分开两类点（假设是binary classification）。我们假设一共$n$个数据，每个数据的属性为$\small X=(x_1, x_2, ..., x_d)$，数据的label为$y_1, ..., y_n$。假设我们有一个超平面，其方程为
+```mathjax
+\small W^T \cdot \small X + b = 0
+```
+要想将某个数据$(\small X, y)$分类正确，就要做到$\small W^T \cdot \small X + b$的正负号与$y$的正负号一样。也就是说：
+```mathjax
+\text{sign}(\small W^T \cdot \small X + b) = y
+```
+如果我们把截距$b$看成数据的一个维度，那么我们将原来的$\small X$ 扩展成$\small X=(x_0, x_1, x_2, ..., x_d)$，其中$x_0=1$，所以对应的$\small W$也会增加一个维度。那么原来的式子就变成了：
+```mathjax
+\text{sign}(\small W^T \cdot \small X) = y
+```
+
+##构建目标函数
+好，我们想要做到的是让分类错误尽可能小。构造一个什么目标函数呢？一个很自然的想法就是：计算分类错误的个数！所以，我们的目标函数就是：
+```mathjax
+\small W_g = \text{argmin} \sum_{n=1}^{N}\big[y_i \neq \text{sign}(\small W \cdot \small X_i)\big]
+```
+不过可惜，这个目标函数的最优解问题的NP-hard的！我们是否可以换一个近似的目标函数呢？
+由于如果点$(\small X_i, y_i)$分类错误，那么：
+```mathjax
+y_i(\small W \cdot \small X_i) < 0
+```
+本来我们只要关心上式的符号就行了，但是问题就没法解了。所以，我们考虑将数值大小也代进去得到目标函数：
+```mathjax
+h(\small X) = -\sum_{i \in M}y_i(\small W \cdot \small X_i)
+```
+这里$M$是错误分类的点的集合。我们要求该函数越小越好，虽然不是最优解，但却是朝着正确的方向走的。利用梯度下降法，首先计算梯度：
+```mathjax
+\frac{\partial h(\small X)}{\partial \small X} = -\sum_{i \in M}y_i \small X_i
+```
+利用stochastic gradient descent，我们不要计算整体的梯度，只要计算每一个个体的梯度。所以，我们给一个初始的$\small W$的值，然后让$\small W$每当遇到一个分类错误的点时，就让其往负梯度方向走。也就是：
+```mathjax
+\small W = \small W + \alpha y_i \small X_i
+```
+所以，如果是线性可分的情形的话，最终这个目标函数会在有限多次迭代后得到$0$，算法完成。这就是PLA算法的过程。
+如果遇到线性不可分的情况，我们就需要通过贪婪的方式进行。也就是说，只有当使得目标函数变小的时候，才对$\small W$进行更新。当经过足够多的迭代后，目标函数不一定最小，但应该能做得还可以。这就是PLA的过程。
+#小结
+台大课堂上，没有涉及到近似的最优化函数，以及梯度下降法的使用，因为作为介绍性质的第二课，从直观上感受什么是分类问题，怎样简单地解决这一问题才是吸引大家的关键。但同时，PLA确实是许多后续内容的基础，介绍一下也是给后面打基础。所以我感觉还是很合理的。
+此外，正如上面提到的，PLA实际上还可以看成linear aggregation，也就是目标函数是数据的线性组合，最终目标是找到最优组合的系数。这个很简单很朴素的方法，在后面很多地方都会用到。
+#附录
+在经典的Duda的Pattern Classification中，第五章linear discriminant functions中，就讲到了perceptron的算法。那里讲得非常详细，介绍了gradient descent以及二阶的Newton's method，然后针对learning rate的取值进行了详细的讨论。之后还将问题进行relaxation，将上面的目标函数转化成为平方和的形式（当然，为了避免出现$\small W=0$的情形，增加了一个margin的概念（我感觉这里就跟SVM联系起来了）），然后通过梯度下降法解决问题。当然，平方形式的最优解问题还可以类似于linear regression的pseudoinverse的方法直接解（哈，终于把以前学的东西回忆起来了）。最后通过margin的概念，又引出了求解最优超平面的SVM。
+在Statistical Learning中，4.5节中也简要讨论了separating hyperplane。主要也是从perceptron讲到SVM，但是整SVM因为很重要，因而在书中单独出来讲。
+传送门：PLA原始文章
+F. Rosenblatt. The perceptron: A probabilistic model for information storage and organization in the brain. Psychological Review, 65(6):386-408, 1958.

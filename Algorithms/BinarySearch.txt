@@ -1,0 +1,137 @@
+---
+date: 2015-11-12 11:19
+status: public
+title: Binary Search
+---
+
+[TOC]
+俗话说的好，“十个二分九个错”，各种边界问题确实让人头大，要写好二分搜索还真是要动点脑筋的。《编程珠玑》专门花了好几小节来讲二分搜索，包括如何编写正确的程序，以及构建测试框架。本篇博客，我将问题分为两种：返回布尔值和返回index。我想如果熟悉了这两种问题，binary search应该对付起来就比较轻松了吧。
+##关于Binary search
+二分搜索指的是在排好序的数组中，搜索某个特定的元素。这里要特别注意，我们的输入时已经排好序的数组。《编程珠玑》中提到，作者调试过一些buggy的二分搜索上，最终发现原因竟然是数组没有排序！
+二分搜索在OJ上出现的还是相当频繁的。有的时候，我们在某个过程中需要定位数组中某个元素的index，一个常规的思路就是从头开始一个一个扫描。但是这样的平均时间复杂度是$O(n)$，那些OJ会专门卡这个时间。这时候往往就要考虑二分搜索。
+##返回boolean
+返回boolean比较简单，只要判断元素是否在数组中就可以了。这时候，实现起来就可以比较粗糙了。这里，我们改写了《编程珠玑》中的代码：
+```C++
+bool binarySearch(vector<int> nums, int target) {
+	int l = 0, r = nums.size()-1, m;
+	bool found;
+	while (true) {
+		if (l > r) {
+			found = false;
+			break;
+		}
+		m = (l+r)/2; //integer overflow danger
+		if (nums[m] < target)
+			l = m + 1;
+		else if (nums[m] > target)
+			r = m - 1;
+		else {
+			found = true;
+			break;
+		}
+	}
+	return found;
+}
+```
+这里需要注意的是$l$(left index)，$r$(right index)在循环中的变化以及循环的终止条件。这个程序的逻辑比较简单，我们的假设，或者叫做循环不变量是：如果我们的target在数组中，那么整个循环过程中target一定在$[l, r]$的区间内。一旦$l>r$了，说明区间长度为0，所以必然找不着。在搜寻的过程中，$l$与$r$的移动逻辑很简单，始终保证target在$[l, r]$的区间内。
+我们来看下面一种写法：
+```C++
+bool binarySearch(vector<int> nums, int target) {
+	int l = 0, r = nums.size()-1, m;
+	bool found = false;
+	while (l <= r) { //why "<="?
+		m = (l+r)/2; //integer overflow danger
+		if (nums[m] < target)
+			l = m + 1;
+		else if (nums[m] > target)
+			r = m - 1;
+		else {
+			found = true;
+			break;
+		}
+	}
+	return found;
+}
+```
+为什么这里的循环终止条件变成了$\le$呢？这种写法和上面有一个不同，那就是上一种写法是无条件进循环，而这里则有条件。如果数组长度为1，还是$<$符号的话，那么岂不是进不了循环？上面break的条件是$l > r$，所以这里循环的条件应该是$l \le r$。
+##返回index(lower bound/upper bound)
+前面提到的是返回boolean，这里说一说如果是返回index怎么办。返回index有很多种情形：
++ 数组中有且仅有一个target，那么返回index没有太大的变数
++ 数组中没有target，我们应该返回比target大的元素的index还是比之小的index?
++ 数组中含有多个target，我们应该返回哪一个的index?
+
+如果只是返回任意一个index，那么前面的代码稍作修改马上就可以使用，但是问题是现在要精确到具体的某个位置。
+###C++标准库中的函数
+其实，这些情形可以被归结为返回上界和下界的问题，这个在C++的<algorithm>中有对应的函数，此处粘贴一下，mark之（代码非常简洁，使用count与first不断调节范围，技巧性很高）：
+```C++
+//lower_bound
+template <class ForwardIterator, class T>
+  ForwardIterator lower_bound (ForwardIterator first, ForwardIterator last, const T& val)
+{
+  ForwardIterator it;
+  iterator_traits<ForwardIterator>::difference_type count, step;
+  count = distance(first,last);
+  while (count>0)
+  {
+    it = first; step=count/2; advance (it,step);
+    if (*it<val) {                 // or: if (comp(*it,val)), for version (2)
+      first=++it;
+      count-=step+1;
+    }
+    else count=step;
+  }
+  return first;
+}
+
+//upper_bound
+template <class ForwardIterator, class T>
+  ForwardIterator upper_bound (ForwardIterator first, ForwardIterator last, const T& val)
+{
+  ForwardIterator it;
+  iterator_traits<ForwardIterator>::difference_type count, step;
+  count = std::distance(first,last);
+  while (count>0)
+  {
+    it = first; step=count/2; std::advance (it,step);
+    if (!(val<*it))                 // or: if (!comp(val,*it)), for version (2)
+      { first=++it; count-=step+1;  }
+    else count=step;
+  }
+  return first;
+}
+```
+以上的lower_bound返回的是"first element in the range $[first,last)$ which does not compare less than val"，也就是不小于val的第一个元素的index，而upper_bound返回的则是大于val的第一个元素的index。
+###我们的需求
+有的时候，这个不能满足我们的需求。假设我们的需求是返回target在数组中真正的上界与下界，也就是：
++ 如果数组中存在target，则返回第一个(lower_bound)或者最后一个(upper_bound)值为target的index
++ 如果不存在target，则返回比target小的第一个元素的index(lower_bound)或者比target大的第一个元素的index(upper_bound)。 如果target比最小值都小,，lower_bound返回$-1$， 如果target比最大值还大，upper_bound返回size（数组大小）。
+下面我们来看一看我们应该怎么写：
+```C++
+int binarySearch_lower(vector<int> nums, int target) {
+	int l = 0, r = nums.size()-1, mid;
+	while (l < r) { //loop condition
+        mid = (r-l)/2+l; //avoid integer overflow
+        if (nums[mid] < target) l = mid + 1; //l keeps in left bound
+        else r = mid; //we don't care, but need to assure r >= index(most left target)
+    }
+    if (nums[l] <= target) return l;
+    else return l-1;
+}
+
+int binarySearch_upper(vector<int> nums, int target) {
+	int l = 0, r = nums.size()-1, mid;
+	while (l < r) { //loop condition
+        mid = (r-l)/2+l+1; //avoid integer overflow, bias to right
+        if (nums[mid] > target) r = mid - 1; //r keeps in right bound
+        else l = mid; //we don't care, but need to assure l <= index(most right target)
+    }
+    if (nums[r] >= target) return r;
+    else return r+1;
+}
+```
+整个过程也不算太复杂，主要是$l, r, mid$的走势。
+先说一说binarySearch_lower：每次$mid$的值与target比较，如果nums[$mid$]的值严格小于target，则令$l$加1，这样$l$就始终不会跨过第一个target元素，而$r$则可以一直移动到和$l$相同的位置为止。那么为什么不要让$r = mid - 1$呢？很简单，因为else的条件是$nums[mid] \ge target$，如果是等于的话就会跳过这个元素。如果这个元素刚好是第一个target，那么就会产生bug，因为target已经不在$[l, r]$的范围内了。
+binarySearch_upper本质上是一样的，但是$mid$在正常的基础上加了$1$，也就是往右偏了一位。那么，这里可以不加$1$吗？不可以！！！如果目前$l$与$r$是相邻的，也就是$l+1=r$，而且$nums[l]==nums[r]==target$。由于$mid$总是返回$l$，所以程序就会陷入死循环。这是要非常小心的！
+
+##小结
+二分搜索很常见，但是变化非常多。本文举了一些例子，但以后还是需要根据实际情况进行判别。同时，我们要注意循环条件，以及$(l, r)$的变化规律，始终牢记$t \in [l, r]$的不变量。

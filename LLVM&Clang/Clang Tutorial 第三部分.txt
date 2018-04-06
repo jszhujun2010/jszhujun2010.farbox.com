@@ -1,0 +1,75 @@
+---
+tags: LLVM&Clang
+date: 2015-07-31 14:42
+status: public
+title: Clang Tutorial 第三部分(Plugin)
+---
+
+[TOC]
+##Clang Plugin简介
+正如第一部分所提到的，Clang Plugin与LibTooling有点像，但是不能跟LibTooling一样对多个源文件进行分析处理。换句话说，Plugin每次不能处理多个文件，那么保留多个文件间的全局信息也是不行的。
+但是，Clang Plugin仍有用武之地，比如语法检查和格式检查。所以，本文将构建一个跟第二部分LibTooling一样的例子。
+> 请注意：这里紧接着[第二部分](http://jszhujun2010.farbox.com/post/llvm&clang/clang-tutorial-di-er-bu-fen)
+
+##LibTooling与Plugin的主要区别
++ Clang Plugin与LibTooling位于完全不同的目录下。
++ Clang Plugin是正常build过程的一部分，通过向Clang可执行文件传递一组特殊的参数来调用的
++ Clang Plugin可以控制我们的build过程（通过设置warning或者停止build）。
+
+##设置一个Clang Plugin
+Clang文档已经给出了一个很好的[Plugin tutorial](http://clang.llvm.org/docs/ClangPlugins.html)，这里不再赘述。此处，我将简介如何将LibTooling转变为Plugin。
+译者注：假设大家已经配置好LLVM与Clang，并且clone了github上的[Clang-Basic-Tutorial](https://github.com/jszhujun2010/Clang-Basic-Tutorial)。
+我们来看一下[PluginExample.cpp](https://github.com/jszhujun2010/Clang-Basic-Tutorial/blob/master/PluginExample/PluginExample.cpp)，这里跟LibTooling只有很小的区别，而且ASTConsumer与RecursiveASTVisitor是完全一样的。
+Plugin没有主函数，它们的入口是向Clang注册的[PluginASTAction](http://clang.llvm.org/doxygen/classclang_1_1PluginASTAction.html)。
+
+##构建一个PluginASTAction
+PluginASTAction跟ASTFrontendAction很像，是调用ASTConsumer的入口。正如名字所表达的，PluginASTAction只能在Clang Plugin中使用。
+以下代码应该替换掉第二部分的ASTFrontendAction:
+```C++
+class PluginExampleAction : public PluginASTAction {
+protected:
+    // this gets called by Clang when it invokes our Plugin
+    // Note that unique pointer is used here.
+	std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &CI, StringRef file) {
+        return llvm::make_unique<ExampleASTConsumer>(&CI);
+    }
+
+    // implement this function if you want to parse custom cmd-line args
+    bool ParseArgs(const CompilerInstance &CI, const vector<string> &args) {
+        return true;
+    }
+};
+```
+译者注：特别要注意上面的unique_ptr, 是我更改后的结果。
+
+##用Clang注册Plugin
+注册Plugin很简单，只要：
+```C++
+static FrontendPluginRegistry::Add<PluginExampleAction>
+       X("-example-plugin", "simple Plugin example");
+```
+这是标准的Clang Plugin的注册过程，应该出现在文件的最下方。这里需要两个输入：
++ 命令行字符串，可以在将来调用这个Plugin，上面我们使用了"-example-plugin"，所以后面我们调用的时候就用"-example-plugin"。
++ 该Plugin的描述："simple Plugin example"。
+
+##编译代码
+译者注：这里我把Makefile完全改写了，详情可见[我的Makefile](https://github.com/jszhujun2010/Clang-Basic-Tutorial/blob/master/PluginExample/Makefile)，预计后面还有一篇介绍Makefile的博文。
+要注意的是，这里要把Plugin编译成为shared object file，动态链接库(.so)，这是在编写Makefile的时候的一个显著区别。
+
+##运行程序
+Shell脚本已经给出：
+```bash
+#!/bin/bash
+clang -Xclang -load \
+      -Xclang /home/workspace/MyProject_test/PluginExample/PluginExample.so \
+      -Xclang -plugin -Xclang -example-plugin \
+      -Wall -c test.c
+```
+上面看上去很复杂，但分解开来看的话就会很简单。首先，"-XClang"的参数就是传递给Clang的cc1 process。cc1 process就像是一种预处理，发生在真正编译之前。基本结构是：
+```
+clang -load [YourLibrary.so] -plugin -example-plugin [-Options] -c [-SourceFiles]
+```
+我们只需要把"-Xclang"加到每个参数前面即可，其它都是走从GCC的building语法。涉及到多个文件的时候，只要在test.c后面加上就可以了。
+
+##结论
+运行Plugin的结果应该和LibTooling的结果一样，但没有打印出修改后的程序。Clang Plugin一般都是在build过程中运行的，所以我们不想在屏幕上输出太多的东西。事实上，我们可以将修改后的代码写到新的文件中或者覆盖原有的文件。

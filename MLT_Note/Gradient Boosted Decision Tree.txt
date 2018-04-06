@@ -1,0 +1,102 @@
+---
+date: 2015-03-02 09:01
+status: public
+tags: MLT_Note
+title: 'Gradient Boosted Decision Tree'
+---
+
+[TOC]
+与RF类似，这里我们想要做的是将AdaBoost与decision tree结合起来。但是，要做到的还不止这些，我们还将从最优化的角度来看待AdaBoost,然后得到本讲最重要的算法:GBDT.
+##Adaptive Boosted Decision Tree
+首先，回顾一下RF方法：将bootstrapping与decision tree结合起来，然后进行投票。那么，类似的，我们也可以将AdaBoost与decision tree结合起来，也就是AdaBoost-DTree,如下图所示：
+![AdaBoost-DTree](http://7u2m8l.com1.z0.glb.clouddn.com/GBDT_1.png)
+注意到左后要做一个线性组合，但是权重怎么确定呢？很显然，可以直接拿AdaBoost的方法
+![vote](http://7u2m8l.com1.z0.glb.clouddn.com/GBDT_3.png)
+所以，AdaBoost-DTree其实就是：
+![Explanation](http://7u2m8l.com1.z0.glb.clouddn.com/GBDT_2.png)
+当然，如果我们使用的决策树是完全长成的话，将会导致$E_{in}(g_t)=0$，从而使得$\epsilon_t=0$,此时$\alpha_t=\infty$,使得最后的linear blending失去意义。所以，一般这里要强调剪枝(pruned tree)。
+一般，剪枝可以直接限制树的高度就好了。那么考虑最极端的情况，那就是限制高度不超过1。我们知道，高度为1的树就是decision stump。所以应用到这里就是AdaBoost-Stump.
+
+
+##从最优化的角度看待AdaBoost
+这里讲到了Gradient Boosting的来龙去脉，先讲到AdaBoost，然后从最优化的角度切入，推导了Gradient Boosting(下一部分)。
+###改写权重表达式
+在AdaBoost中，我们有每一轮迭代的权重与上一轮的关系，现在将这个关系改写如下：
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/GBDT_6.png)
+这是因为$\alpha_t$等于方片的自然对数。
+所以通过计算，我们可以得到：
+```mathjax
+u_n^{(T+1)}=\frac{1}{N} \exp \big( -y_n \sum_{t=1}^{T} \alpha_t g_t(\mathbf x_n) \big)
+```
+我们最终得到的$G(\mathbf x)= sign \big( \sum_{t=1}^{T} \alpha_t g_t(\mathbf x) \big)$,我们称$\sum_{t=1}^{T} \alpha_t g_t(\mathbf x)$为投票后的分数值。
+###AdaBoost会降低$\sum_{n=1}^{N} u_n^{(t)}$
+这（标题）是一个很重要的结论，那么怎么得到的呢？这里我想说两种解释的方法。
+####投票分数与Margin
+这里，老师在课堂上进行了类比（没有严格证明）。会议SVM里面的margin的表达式：$\frac{y_n \big( \mathbf w^T \phi(\mathbf x_n)+b \big)}{||w||}$,所以$y_n$乘以分数就可以表示有符号的没有归一化的margin.由于我们想要大的边界，所以，$y_n$与分数的乘积要大，所以$u_n^{(T+1)}$要小。因此，我们在AdaBoost的时候要追求的是$u_n^{(T+1)}$,因而$\sum_{n=1}^{N} u_n^{(t)}$会减小。
+####特殊情形(In Hw3)
+上面的解释不过是从直观上的一个看法，比较不科学。这里引入作业三的一道题进行解释：
+假设 $U_t = \sum_{n=1}^N u_n^{(t)}$,求$U_{(t+1)}$.经过求解，我们得到：
+```mathjax
+\prod_{t=1}^T (2 \sqrt{\epsilon_t(1-\epsilon_t)})
+```
+可以发现随着$\epsilon_t$的减小，$U_{(t+1)}$在减小。而AdaBoost肯定是要追求$\epsilon_t$减小的(错误)，所以上面的结论应该是正确的。
+###AdaBoost Error Function
+由于AdaBoost减小了$\sum_{n=1}^{N} u_n^{(t)}$，所以，也减小了最终的总权重：
+```mathjax
+\sum_{n=1}^{N} u_n^{(T+1)}=\frac{1}{N} \sum_{n=1}^{N} \exp \bigg(-y_n \sum_{t=1}^{T} \alpha_t g_t (\mathbf x_n) \bigg)
+```
+下面我们来对应上面的式子与错误的关系，见下面的图：
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/GBDT_4.png)
+我们引入ADA错误，也是一个关于$ys$的函数。
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/GBDT_5.png)
+采用类比的方法，我们可以很容易既然我们AdaBoost追求的也是减小错误，而总权重在减小，那么就考虑用上面的总权重用来衡量$E_{in}$，也就是$\hat E_{ADA}$.
+
+
+##Gradient Boosting
+上面我们有了错误的衡量方式，这里我们将最优化错误函数。回忆梯度下降法：
+![GD](http://7u2m8l.com1.z0.glb.clouddn.com/GBDT_7.png)
+这是在向量空间找到最佳方向与最佳步长，不断迭代找到最优解。这里，我们要求解$g_t$，也就是一个函数，怎么办呢？老师课上讲，我们可以将函数看成向量，然后在函数空间里面采用类似的方法求解。
+![function GD](http://7u2m8l.com1.z0.glb.clouddn.com/GBDT_8.png)
+所以，现在我们就要最优化函数$h$以及步长$\eta$.
+###最优化$h$
+那么什么样的$h$才算好呢？注意到我们的目标是最小化错误值，所以一个好的$h$应该最小化$\sum_{n=1}^{N} u_n^{(t)} (-y_n h(\mathbf x_n))$.所以，我们就会有：
+![optimize h](http://7u2m8l.com1.z0.glb.clouddn.com/GBDT_9.png)
+最终我们要最小化$E_{in}^{u^{(t)}}(h)$,那么怎么优化呢？其实AdaBoost就是做的这件事！
+
+###最优化$\eta$
+对于gradient descent而言，我们找到了好的$h$也就意味着找到了好的$g_t$，也就是我们使用$h$来逼近$g_t$.当这件事情做完了之后，我们就要优化$\eta$，也就是这样：
+![optimize](http://7u2m8l.com1.z0.glb.clouddn.com/GBDT_10.png)
+那么$\eta$怎么优化呢？我们知道在logistic regression里面使用GD的时候$\eta$是一个定值，但是在这里最优的$\eta_t$比固定的$\eta$"somewhat faster".这个优化$\eta$的过程称之为<font color='red'>steepest descent for optimization</font>，也就是我以前听说过的最速下降法。
+对于二元分类问题，$y_n$与$g_t(\mathbf x_n)$都是正负1，所以：
+```mathjax
+\hat E_{ADA} = \bigg( \sum_{n=1}^{N} u_n^{(t)} \bigg) \bigg( \big(1-\epsilon_t \big) \exp (-\eta ) + \epsilon_t \exp ( +\eta ) \bigg)
+```
+通过求解$\frac{\partial \hat E_{ADA}}{\partial \eta}=0$，我们可以得到steepest $\eta_t=\ln \sqrt{\frac{1-\epsilon_t}{\epsilon_t}}=\alpha_t$.
+所以，我们说AdaBoost是：steepest descent with approximate functional gradient(函数梯度的最速下降).
+
+###任意错误函数的Gradient Boosting方法
+以上我们采用的是$\exp$错误衡量，同时针对的是二元分类的问题，现在我们要扩展到regression或者soft binary classification.
+![expansion](http://7u2m8l.com1.z0.glb.clouddn.com/GBDT_11.png)
+下面就来看一下使用Gradient Boosting来进行回归分析。
+####Gradient Boosting for Regression
+这里我们采用平方错误衡量，假设$\sum_{\tau=1}^{t-1} \alpha_t g_t(\mathbf x_n)=\mathbf{s_n}$,那么$\mathbf{err}(\mathbf{s}, \mathbf {y})=(\mathbf s- \mathbf y)^2$.
+我们进行泰勒展开：
+![Formula](http://7u2m8l.com1.z0.glb.clouddn.com/GBDT_12.png)
+如果$h$没有约束的话，我们可以令$h=-\infty (s_n-y_n)$,这样就没有意义了。事实上，$h$的大小这里可以不关心，我们只要“方向”，大小可以在$\eta$中进行优化。为了避免上面没有意义的结果，我们引入惩罚机制：
+![Penalty](http://7u2m8l.com1.z0.glb.clouddn.com/GBDT_13.png)
+式子中加入$h^2$，避免无穷小的结果。这样一来，就容易多了。因为式子中其它都是常数，所以我们最优化$h$就是要在${(\mathbf x_n, y_n-s_n)}$上进行regression 就行了。
+在得到最优的$h$后，我们用它来近似代替$g$，所以就可以得到：
+![eta](http://7u2m8l.com1.z0.glb.clouddn.com/GBDT_14.png)
+这也很简单，就是在{($g_t$-transformed input, residual)}上进行单变量的regression就行了。
+注：上面的residual,也就是余数，是指$y_n-s_n$.
+
+根据上面的推论，可以发现（不是很严谨）$\alpha_t=\eta$,由此我们就可以得到Gradient Boosted Decision Tree的完整算法：
+![GBDT](http://7u2m8l.com1.z0.glb.clouddn.com/GBDT_15.png)
+GBDT被称为AdaBoost_DTree的"regression sibling",在实际中比较流行。
+
+
+##延伸阅读材料
+1.[Greedy Function Approximation: A Gradient Boosting Machine (Friedman)](http://statweb.stanford.edu/~jhf/ftp/trebst.pdf)
+这个是相关方法的论文。
+2.[PPT](https://www.cse.cuhk.edu.hk/irwin.king/_media/presentations/gbdt-tom.pdf)
+这个是某个学校讲GBDT的PPT，基本上是按照上面的论文来的。论文里面首先讲到函数空间的优化问题，数学功底不够，不大看得懂。后面讲到具体算法，不仅这里的least-square的问题，还涉及到least-absolute-derivation,multi-class logistic likelyhood for classification等等。（内容太多了，有时间再看吧）

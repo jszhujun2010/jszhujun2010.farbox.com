@@ -1,0 +1,53 @@
+---
+date: 2015-01-19 19:28
+status: public
+tags: MLT_Note
+title: 'Dual SVM'
+---
+
+[TOC]
+上回讲到SVM问题的由来，并经过一番推导得到问题的原始形式。但是针对二次规划（QP）的问题，一般都不会直接求解，而是通常将其化成对偶形式。
+#动机：为什么化成对偶问题
+回忆当时求解QP问题的时候，需要计算矩阵Q，而Q是一个d+1维的方阵。当数据需要进行特征转换，到高维空间的时候，d将会是一个很大的数，我们将会遇到维度灾难(dimension disaster)的问题。为了解决这个问题，大家引入了原问题的对偶问题。
+#问题推导
+##预警
+这里数学推导很复杂，此处解释不多。
+##拉格朗日乘数法
+正如下图所示，为了求解最优化的问题，我们引入lagrange multipliers.
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/11.png)
+那么SVM要求解的问题就变成了
+```mathjax
+SVM \equiv \min_{b,w} \; \Big(\max_{all \; \alpha_n \ge 0} \;\; L(b,w,\alpha)\Big)
+```
+这里简单解释一下，实际上SVM的问题就是要转化成在最大化拉格朗日函数的条件下，找到最优（长度最短）的W。如果$1-y_n(w^Tz_n+b)>0$,那么就表示违背了约束条件，最大化拉格朗日函数就会得到一个无穷大的值。但是如果没有违背条件的话，所有的$\alpha$都必然为0，所以我们求解的还是原始的问题。
+一般地，在数学的凸优化理论（这里推荐Stanford的凸优化课程，以及其课本，见[课程网站](http://stanford.edu/~boyd/cvxbook/)）中，此类问题，如果满足：
++ 问题是凸的
++ constraint qualification(不违背约束条件)
++ linear constraints
+就会存在其强对偶关系的问题，也就是：
+```mathjax
+ \min_{b,w} \; \Big(\max_{all \; \alpha_n \ge 0} \;\; L(b,w,\alpha)\Big)= \max_{all \; \alpha_n \ge 0} \; \Big(\min_{b,w} \;\; L(b,w,\alpha)\Big)
+```
+通过求解最优化的对偶问题，就可以得到最终形式是：
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/16.png)
+同时必须满足著名的KKT condition:
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/17.png)
+其中，最后一个条件称之为complementary slackness，就是说两个乘数最多只能由一个不为0。
+上面的最终形式就是一个二期规划问题，所以对应相关系数，就可以得到：
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/18.png)
+在许多现在的QP solver里面，已经集成了一些等号约束，有的甚至有了范围约束，所以要查阅相关资料再使用（此处有待补充Matlab里的相关内容）。
+而实际的Q一般不是一个系稀疏矩阵，所以计算会教复杂，一般会使用特殊的solver来解决。
+#b的求解
+上面已经可以求到$w$了，那么$b$该怎么求呢？
+根据上面提到的complementary slackness，选取一个不为零的$\alpha$，就可以令$1-y_n(w^Tz_n+b)=0$，从而求解出$b$。
+#Support Vector的物理含义
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/19.png)
+根据上面的推导，我们知道决策的超平面方程，也就是$wx+b=0$，是由那些$\alpha$大于零的点决定的（这是因为$w=\sum \alpha_n y_n z_n$,只有不$0$的那些点才回其作用，$b$也是同样的道理）。
+所以，<font color='red'>support vector就是那些$\alpha>0$的vector（点）</font>。
+经常有一种混淆的概念，说那些边界上的点就是support vector，但这不一定。因为它们$\alpha$可能为$0$，所以它们只能称为support vector candidate。
+#‘Represented by data’
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/20.png)
+可以发现，PLA与SVM的$w$都可以用数据的线性组合表示，我们就称之为可以represented by data。
+#问题还没有解决
+为了解决高维的矩阵运算的问题，我们想引入对偶问题来解决，但是其实还能解决这个问题。虽然最后的二次规划问题只有$N$个变量，$N+1$个约束条件，但是在计算$z_n^T z_m$时依然不可避免高维矩阵运算。
+下一次将引入kernel tricks来解决这个问题。

@@ -1,0 +1,211 @@
+---
+tags: LLVM&Clang
+date: 2015-07-31 08:54
+status: public
+title: Clang Tutorial 第二部分(LibTooling)
+---
+
+[TOC]
+译者注：这里主要翻译了[这篇tutorial](https://kevinaboos.wordpress.com/2013/07/23/clang-tutorial-part-ii-libtooling-example/)，部分代码进行了修改，Makefile进行了重写，一些文字根据个人理解进行了增删改。
+这里将先从LibTooling讲起，因为我认为这是Clang中最有用的接口。这里的代码只要略微修改一下就可以在Plugin的环境下使用了。下面就开始来看例子吧！
+> 请注意：这里紧接着[第一部分](http://jszhujun2010.farbox.com/post/llvm&clang/clang-tutorial-di-bu-fen)。
+假设我们想要分析一个简单的C文件，叫test.c，如下所示：
+```C
+#No header, because it needs additional efforts
+void do_math(int *x) {
+    *x += 5;
+}
+ 
+int main(void) {
+    int result = -1, val = 4;
+    do_math(&val);
+    return result;
+}
+```
+现在我想要对test.c进行重构，或者是修改：
++ 把函数名do_math改为更好的add5
++ 把所有的对do_math的调用都改为add5
++ 把返回值改为val
+
+译者注：请注意，直接省略了程序的头文件。这是因为我们进行的是静态程序分析，可以不需要头文件。如果有头文件的话，我们还需要对源文件进行预处理，使用HeaderSearchOptions以及HeaderSearch等类，有点麻烦，以后有机会再处理。
+
+[这里这完整的LibTooling的例子](https://github.com/jszhujun2010/Clang-Basic-Tutorial/blob/master/LibToolingExample/)，大家可以直接clone到本地（请注意事先安装好Clang与LLVM，参见第一部分）。接下来就是简要分析一下Example.cpp。
+##从Main函数开始
+下面就是main函数：
+```C++
+int main(int argc, const char **argv) {
+    // parse the command-line args passed to your code
+    CommonOptionsParser op(argc, argv, StatSampleCategory);        
+    // create a new Clang Tool instance (a LibTooling environment)
+    ClangTool Tool(op.getCompilations(), op.getSourcePathList());
+
+    // run the Clang Tool, creating a new FrontendAction (explained below)
+    int result = Tool.run(newFrontendActionFactory<ExampleFrontendAction>().get());
+
+    errs() << "\nFound " << numFunctions << " functions.\n\n";
+    // print out the rewritten source code ("rewriter" is a global var.)
+    rewriter.getEditBuffer(rewriter.getSourceMgr().getMainFileID()).write(errs());
+    return result;
+}
+```
+main函数里除了rewriter之外（后面会有解释），都解释得很清楚。首先设置一个Clang Tool，将命令行参数（op.getCompilations()）以及源文件列表（op.getSourcePathList()）传给它，然后运行这个工具就好了。LibTooling的有点在于，我们可以在工具运行（源代码分析）前后做其它的事情，比如打印出修改后的代码以及统计函数的个数，这在Plugin里面是做不到的。当然，我们还需要一些全局变量：
+```C++
+Rewriter rewriter;
+int numFunctions = 0;
+```
+
+##创建FrontendAction
+现在就要创建我们自己的[FrontendAction](http://clang.llvm.org/doxygen/classclang_1_1FrontendAction.html)，这是可以在分析处理Clang前端的一个类。我们选择FrontendAction是因为我们想要分析test.c的AST表示。
+```C++
+class ExampleFrontendAction : public ASTFrontendAction {
+public:
+    ExampleFrontendAction() {}
+
+    //Note that unique pointer is used.
+    virtual std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &CI, StringRef file) {
+        return  llvm::make_unique<ExampleASTConsumer>(&CI); // pass CI pointer to ASTConsumer
+    }
+};
+```
+这里不是很复杂，我们创建了一个ASTFrontendAction的子类，改写了CreateASTConsumer函数以返回我们自己的ASTConsumer。我们还将指向[CompileInstance](http://clang.llvm.org/doxygen/classclang_1_1CompilerInstance.html)的指针传入，因为这里面包含很多我们需要分析的上下文信息。（译者注：注意到，这里为了配合最新的Clang，我们使用了unique pointer，原博客的Clang版本较低，故而使用了原始的指针。）
+
+##构建ASTConsumer
+[ASTConsumer](http://clang.llvm.org/doxygen/classclang_1_1ASTConsumer.html)"consumes"(读入)由Clang parser产生的AST。我们可以任意地重载ASTConsumer的成员函数，这样解析AST后我们的代码就可以被调用。首先，我们重载函数[HandleTopLevelDecl](http://clang.llvm.org/doxygen/classclang_1_1ASTConsumer.html#a856744773798bd97057ccbc2768b21ad)，这在Clang解析完顶级的声明（像全局变量，函数定义等）后就可以被调用了。
+```C++
+class ExampleASTConsumer : public ASTConsumer {
+private:
+    ExampleVisitor *visitor; // doesn't have to be private
+ 
+public:
+    // override the constructor in order to pass CI
+    explicit ExampleASTConsumer(CompilerInstance *CI)
+        : visitor(new ExampleVisitor(CI)) // initialize the visitor
+        { }
+ 
+    // override this to call our ExampleVisitor on each top-level Decl
+    virtual bool HandleTopLevelDecl(DeclGroupRef DG) {
+        // a DeclGroupRef may have multiple Decls, so we iterate through each one
+        for (DeclGroupRef::iterator i = DG.begin(), e = DG.end(); i != e; i++) {
+            Decl *D = *i;
+            visitor->TraverseDecl(D); // recursively visit each AST node in Decl "D"
+        }
+        return true;
+    }
+};
+```
+以上代码使用了ExampleVisitor（见下文），来访问整个源文件顶级声明（top-level declaration）的AST节点。对于test.c而言，两个FunctionDecl将会被访问，do_math()以及main()。
+
+##一个更好的ASTConsumer的实现
+重载HandleTopLevelDecl()意味着每当一个新的Decl出现的时候，函数中的代码就会被调用，<b>而不是等到整个源文件被解析完成后</b>。从parser的角度看，当访问do_math()的时候，它将完全不知道main()的存在，也就是说我们不能access到当前分析的函数之后的函数。
+但是，这个功能很重要！
+不过，ASTConsumer还有一个更好的函数用来重载，[HandelTranslationUnit()](http://clang.llvm.org/doxygen/classclang_1_1ASTConsumer.html#a2bea2db1d0e8af16c60ee7847f0d46ff)，该函数只有在整个文件都解析完才被调用。这样的话，一个translation单元就是一整个源文件。[ASTContext](http://clang.llvm.org/doxygen/classclang_1_1ASTContext.html)类用来表示那个源文件的AST，并且包含许多很有用的成员（去读文档吧！）。
+所以，下面的代码重载了HandelTranslationUnit():
+```C++
+ // override this to call our ExampleVisitor on the entire source file
+    virtual void HandleTranslationUnit(ASTContext &Context) {
+        /* we can use ASTContext to get the TranslationUnitDecl, which is
+             a single Decl that collectively represents the entire source file */
+        visitor->TraverseDecl(Context.getTranslationUnitDecl());
+    }
+```
+大多数情况下，我们都应该使用HandelTranslationUnit(), 尤其在使用[RecursiveASTVisitor](http://clang.llvm.org/doxygen/classclang_1_1RecursiveASTVisitor.html)的时候。
+
+##创建一个RecursiveASTVisitor
+前面两部分只不过在设置架构，现在到了正文部分了。RecursiveASTVisitor是一个特别有用的类，使用它可以访问任意类型的AST节点，比如FunctionDecl以及Stmt, 只要重载那个函数（比如VisitFunctionDecl以及VisitStmt）就可以了。当然，其它AST类也同样适用这样的规则。Clang提供了一个[官方的文档](http://clang.llvm.org/docs/RAVFrontendAction.html)，虽然很短，但是很全面。
+像Visit..(表示Visit任意节点的函数，如VisitStmt）这样的函数，我们必须返回true以继续遍历AST或者返回false以终止遍历，退出Clang。我们不可以直接调用Visit..，而是应该调用TraverseDecl（正如我们前面的那个例子一样），调用Visit..函数则是在背后调用的。
+由于我们只需要改写函数定义和一些statement，我们只需要重载VisitFunctionDecl和VisitStmt。下面是部分代码：
+```C++
+class ExampleVisitor : public RecursiveASTVisitor<ExampleVisitor> {
+private:
+    ASTContext *astContext; // used for getting additional AST info
+
+public:
+    explicit ExampleVisitor(CompilerInstance *CI): astContext(&(CI->getASTContext())) {  // initialize private members
+        rewriter.setSourceMgr(astContext->getSourceManager(), astContext->getLangOpts());
+    }
+
+    virtual bool VisitFunctionDecl(FunctionDecl *func) {
+        numFunctions++;
+        string funcName = func->getNameInfo().getName().getAsString();
+        if (funcName == "do_math") {
+            rewriter.ReplaceText(func->getLocation(), funcName.length(), "add5");
+            errs() << "** Rewrote function def: " << funcName << "\n";
+        }    
+        return true;
+    }
+
+    virtual bool VisitStmt(Stmt *st) {
+        if (ReturnStmt *ret = dyn_cast<ReturnStmt>(st)) {
+            rewriter.ReplaceText(ret->getRetValue()->getLocStart(), 6, "val");
+            errs() << "** Rewrote ReturnStmt\n";
+        }        
+        if (CallExpr *call = dyn_cast<CallExpr>(st)) {
+            rewriter.ReplaceText(call->getLocStart(), 7, "add5");
+            errs() << "** Rewrote function call\n";
+        }
+        return true;
+    }
+};
+```
+以上的代码引入了[Rewriter](http://clang.llvm.org/doxygen/classclang_1_1Rewriter.html)类，可以让我们对源代码进行修改，这在代码重构或者小规模的代码修改里面很常见。我们还在mian()函数的末尾用它打印出了修改后的代码。
+使用Rewriter意味着我们需要找到正确[SourceLocation](http://clang.llvm.org/doxygen/classclang_1_1SourceLocation.html)来插入或者替换相关的代码。同时，我们还使用了[dyn_cast](http://llvm.org/docs/ProgrammersManual.html#the-isa-cast-and-dyn-cast-templates)，来检查Stmt st是一个ReturnStmt还是CallExpr。而errs()是一个stderr流，在LLVM/Clang里面打印debug信息。
+
+##写一个更具体的Visit..函数
+除了更一般化地重载VisitStmt，我们可以更具体化地重载VisitReturnStme以及VisitCallExpr。VisitReturnStme和VisitCallExpr都是Stmt的子类。这就是Clang AST和RecursiveASTVisitor的美妙之处：我们可以选择一般化或者是具体化，下面就是代码：
+```C++
+// this replaces the VisitStmt function above
+virtual bool VisitReturnStmt(ReturnStmt *ret) {
+    rewriter.ReplaceText(ret->getLocStart(), 6, "val");
+    errs() << "** Rewrote ReturnStmt\n";
+    return true;
+}
+virtual bool VisitCallExpr(CallExpr *call) {
+    rewriter.ReplaceText(call->getLocStart(), 7, "add5");
+    errs() << "** Rewrote function call\n";
+    return true;
+}
+```
+
+##编译代码
+译者注：原文给出的Makefile很奇怪，一些文件都没有找到。所以这里不再重复原文的Makefile，详细信息可见我的[Makefile](https://github.com/jszhujun2010/Clang-Basic-Tutorial/blob/master/LibToolingExample/Makefile)。此外，官方也提供了[很好的Makefile编写文档](http://llvm.org/docs/MakefileGuide.html#makefile)。预计，过两天我会针对Makefile写一篇博文。
+
+##运行程序
+运行程序很简单，一个shell文件已经能够给出：
+```bash
+#!/bin/bash
+
+./Example test.c --
+```
+如果想要使用LibTooling分析多个源文件，或者添加一些CFLAGS，又或者是添加一些命令行参数，可以参照下面的例子：
+```bash
+#!/bin/bash
+ 
+your-executable-code \
+    file1.c file2.c file3.c \
+    -myCmdLineArg argument1 \
+    -- \
+    -Wall -I some/include/dir
+```
+注意上面的"--"是作为LinTooling程序的输入，而后面的则是给Clang自身的输入。
+
+##结论
+如果上面一切都顺利的话，恭喜你第一次成功地运用上了Clang！你应该能够得到下面的输出：
+```
+** Rewrote function def: do_math
+** Rewrote function call
+** Rewrote ReturnStmt
+ 
+Found 2 functions.
+ 
+void add5(int *x) {
+    *x += 5;
+}
+ 
+int main(void) {
+    int result = -1, val = 4;
+    add5(&val);
+    return val;
+}
+```
+希望大家觉得这个Clang LibTooling例子有用。如果有什么问题，欢迎发邮件给我（邮箱在ABOUT ME页面）。
+下篇博文将介绍Clang Plugin接口。

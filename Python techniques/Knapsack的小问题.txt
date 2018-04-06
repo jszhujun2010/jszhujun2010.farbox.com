@@ -1,0 +1,92 @@
+---
+date: 2015-04-09 14:48
+status: public
+title: Knapsack的小问题
+---
+
+[TOC]
+##knapsack问题
+
+##greedy methods
+
+##optimal solutions
+###穷举一个集合的所有子集（组合问题）
+####使用0/1编码
+```python
+def dToB(n, numDigits):
+    """requires: n is a natural number less than 2**numDigits
+      returns a binary string of length numDigits representing the
+              the decimal number n."""
+    assert type(n)==int and type(numDigits)==int and n >=0 and n < 2**numDigits
+    bStr = ''
+    while n > 0:
+        bStr = str(n % 2) + bStr
+        n = n//2
+    while numDigits - len(bStr) > 0:
+        bStr = '0' + bStr
+    return bStr
+
+def genPset(Items):
+    """Generate a list of lists representing the power set of Items"""
+    numSubsets = 2**len(Items)
+    templates = []
+    for i in range(numSubsets):
+        templates.append(dToB(i, len(Items)))
+    pset = []
+    for t in templates:
+        elem = []
+        for j in range(len(t)):
+            if t[j] == '1':
+                elem.append(Items[j])
+        pset.append(elem)
+    return pset
+```
+####使用位操作
+python generator的概念
+python yield的用法
+```python
+# generate all combinations of N items
+def powerSet(items):
+    N = len(items)
+    # enumerate the 2**N possible combinations
+    for i in xrange(2**N):
+        combo = []
+        for j in xrange(N):
+            # test bit jth of integer i
+            if (i >> j) % 2 == 1:
+                combo.append(items[j])
+        yield combo
+```
+
+两个bag使用位操作：
+```python
+def yieldAllCombos(items):
+    """
+    Generates all combinations of N items into two bags, whereby each item is in one or zero bags.
+
+    Yields a tuple, (bag1, bag2), where each bag is represented as a list of which item(s) are in each bag.
+    """
+    N = len(items)
+    # Enumerate the 3**N possible combinations   
+    for i in xrange(3**N):
+        bag1 = []
+        bag2 = []
+        for j in xrange(N):
+            if (i / (3 ** j)) % 3 == 1:
+                bag1.append(items[j])
+            elif (i / (3 ** j)) % 3 == 2:
+                bag2.append(items[j])
+        yield (bag1, bag2)
+```
+####使用itertools
+```python
+import itertools
+
+def powerSet(items):
+    for i in xrange(len(items)+1):
+        part_i = itertools.combinations(items, i)
+        for part in part_i:
+            result = list(part) 
+            yield result
+
+```

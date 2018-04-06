@@ -1,0 +1,61 @@
+---
+date: 2015-04-06 13:34
+status: public
+tags: StatisticalInference
+title: 数值变量的推断
+---
+
+[TOC]
+##t分布
+假设$n$为样本的大小，当$n$比较小而且$\sigma$未知的时候，通常使用t分布来描述样本的统计值的分布情况。t分布有一个参数$df$，称之为自由度。下图是t分布的图像：
+![t](http://7u2m8l.com1.z0.glb.clouddn.com/tdistr.png)
+可以发现当$df$趋向于无穷大的时候，t分布就是正态分布。
+###使用t分布为小样本进行推断
+一般来说，$df=n-1$，$n$是指样本的大小。与正态分布类似，我们也可以求T score(类似于Z score)，然后求得p-value,下面是R里面的一些命令：
+```R
+#0.025 is the area of one side, the result is critial score
+qt(0.025, df = 21)
+
+#calculate p-value, 2.3 is T-value, it is a two-side result(cus *2)
+2 * pt(2.30, df = 21, lower.tail = FALSE)
+```
+
+
+##Multiple comparisons与ANOVA
+###Paired data与Independent means，置信区间
+Paired data主要研究的是同一组数据里面两个相关的变量之间的差异，统计其置信区间很简单，就是新建一个变量，变量内容为这两个变量的差，然后对新的变量进行统计分析就好了。
+Independent means指的是，研究来自不同的两个小组的数据之间是否存在差异。该研究对数据的要求是：每个小组内的数据要求与CLT相同，同时要求组间的数据互相独立，每个小组的数据个数至少大于30。统计分析组间差异的时候：
+```mathjax
+\text{point estimate} \pm \text{margin of error} \\
+\left( \bar{x}_1-\bar{x}_2\right) \pm z*\text{SE}_{ \bar{x}_1-\bar{x}_2} \\
+\text{SE}_{ \bar{x}_1-\bar{x}_2}=\sqrt{\frac{s_1^2}{n_1}+\frac{s_2^2}{n_2}}
+```
+如果是小样本，使用t分布处理的话，$df=min{(n_1-1,n_2-1)}$.
+###ANOVA
+ANOVA就是指analysis of variance，用来比较三组以上的均值。
+####假设形式
+一般来说，$H_0$就是假设各组之间均值没有差异，也就是说均值都相等，而$H_A$则是至少有两组均值有差异。
+####统计量F
+在前面比较两组之间的均值的时候，我们采用的是z score与t score，这里我们要使用的是F值。F的定义为：
+```mathjax
+F=\frac{\text{variability bet. groups}}{\text{variability w/in groups}}
+```
+F的分布如下：
+![F](http://7u2m8l.com1.z0.glb.clouddn.com/FS.png)
+F值越大，p-value越小，我们越可能拒绝$H_0$。
+下面是一些计算公式：
+```mathjax
+F=\frac{MSG}{MSE} \\
+MSG=SSG/df_G \\
+MSE=SSE/df_E \\
+df_E = df_T-df_G\\
+SSE=SST-SSG\\
+SST=\sum_{i=1}^{n}(y_i-\bar{y})^2
+SSG = \sum_{j=1}^{k}n_j(\bar{y_j}-\bar{y})^2
+```
+###调整的$\alpha$
+由于要计算的是多组之间是否存在差异，我们要把$\alpha$进行调整：
+```mathjax
+\alpha^{\star}=\alpha/K \\
+K=k(k-1)/2
+```

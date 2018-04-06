@@ -1,0 +1,30 @@
+---
+date: 2015-01-23 19:17
+status: public
+tags: MLT_Note
+title: 'Soft Margin SVM as regularization model'
+---
+
+[TOC]
+回忆之前学习的soft margin SVM的问题：
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/51.png)
+#Soft margin SVM & regularization
+我们引入了变量$\zeta$来记录那些margin violation。如果没有违背约束，那么$\zeta=0$，所以，原先的问题可以写成：
+```mathjax
+\min_{b,w} \;\;\; \frac{1}{2}w^Tw+C \sum_{n=1}^{N}\max(1-y_n(w^Tz_n+b),0)
+```
+实际上上面的第二项可以看成我们分类时错误的大小，也就是原问题变成了$\min \;\; \frac{1}{2}w^Tw+C \sum \widehat{err}$，对比之前的L2 regularization的问题，也就是$\min \;\; \frac{\lambda}{N}w^Tw+ \sum err$。
+之前，L2 regularization的问题是利用的梯度下降法解出来的，但是这里由于存在max函数，不是处处可微的，所以不可以那样解。
+下面先看一下SVM与regularized model的关系。
+#SVM as regularized model
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/52.png)
+上图是对第一讲的那张图的补充。
+下面是参数，边界的关系
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/53.png)
+我们可以发现SVM实际上就是一种regularization，因此可能可以扩展到其它学习模型中。
+#从错误衡量的角度看SVM
+下面对比了分数大小与错误（$0/1$错误，SVM错误以及stochastic错误）的关系：
+stochastic
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/54.png)
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/55.png)
+通过比较，可以发现SVM与L2-regularized logistic regression很像！

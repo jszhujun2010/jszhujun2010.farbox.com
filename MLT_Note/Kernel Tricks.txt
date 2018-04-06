@@ -1,0 +1,65 @@
+---
+date: 2015-01-22 16:39
+status: public
+tags: MLT_Note
+title: 'Kernel Tricks'
+---
+
+[TOC]
+前面说到，$z^T_nz_m$的高维运算问题依旧没有解决，所以这里将引入核函数(kernel function)的概念来处理该问题。
+#澄清相关概念
+当年学习另外一门课程的时候，我们也接触过核函数的概念，使得我似乎概念上有一些混淆。查询了一下维基百科后，发现这完全是两个概念，这里需要理清一下。
+[<font color='red'>KDE</font>](http://en.wikipedia.org/wiki/Kernel_density_estimation)，也就是kernel density estimation是一种非参数估计的方法，用来进行随机变量的概率密度估计。回想当年学习的时候，在讲非参数估计时引入了两种方法，一是Parzon窗，另外一个就是KNN。而KDE的方法就使用在Parzon窗中使用的方法，里面也涉及到核函数的概念，具体可参见[<font color='red'>这里</font>](http://en.wikipedia.org/wiki/Kernel_(statistics))。
+而我们这里所讲的kernel function则是在特征转换时遇到的高维数据处理的时候采用的方法。
+#特征转换(feature transformation)
+![feature transformation](http://7u2m8l.com1.z0.glb.clouddn.com/21.png)
+前面我们一直都在考虑线性可分的情形，当线性不可分的时候，我们就要考虑把低维空间的数据映射到高维空间，希望可以在高维空间里找到超平面将数据分开，这既是特征转换要做的工作。
+#多项式核函数
+涉及到高维矩阵运算的式子是$y_ny_mz_n^Tz_m$,那么假设现在的一个多项式转换是：
+![formula](http://7u2m8l.com1.z0.glb.clouddn.com/24.png)
+$z_n^Tz_m$可以写成$K_\phi(x,x') \equiv \phi(x)^T\phi(x')$，所以上面的多项式转换下就得到：
+```mathjax
+K_{\phi_2}(x,x') = 1+(x^Tx')+(x^Tx')^2
+```
+可以发现，经过一番推导，我们只需要对原始数据进行矩阵运算就可以得到高维计算的结果，打打简化的计算过程。下面就是一些常见的多项式核函数：
+###一般形式的二阶核函数
+```mathjax
+K_2(x,x') =(1+\gamma x^Tx)^2,\gamma>0
+```
+二阶核函数一般很常用，但是$\gamma$的选择对决策边界的影响很难说，需要慎重选择。
+###一般阶数的核函数
+```mathjax
+K_Q(x,x') =(\zeta+\gamma x^Tx)^Q,\gamma>0,\zeta \ge 0
+```
+当$\zeta=0,\gamma=1$的时候，就是所谓的线性核函数。需要记住的是，linear first!
+#高斯核函数
+```mathjax
+K(x,x') =exp(-\gamma \| x-x' \|^2),\gamma>0
+```
+该式用泰勒展开，实际上就是一个无穷维度的多项式核函数。由于好像函数是围绕着一个中心的，所以又被常称为<span style="font-weight:bold;color:red;">径向基函数(radius basis function)</span>。
+##$\gamma$的选择
+![参数选择](http://7u2m8l.com1.z0.glb.clouddn.com/29.png)
+当$\gamma$变大时，可能会发生overfitting的问题。一个直观的解释就是$\gamma$变大，高斯函数就会变尖。考虑一个特殊的情况，当$\gamma$变得无穷大的时候：
+```mathjax
+K_{lim}(x,x') =[[x=x']]
+```
+核函数就会只认出点本身。所以，<font color='red'>SVM虽然有宽宽的边界的保证，依旧可能会overfitting</font>。
+#线性核函数、多项式核函数、高斯核函数的比较
+线性核函数最简单，总是首选，但是能力有限，使用的局限性很大。多项式核函数能力强大，但参数选择困难，很容易overfitting。高斯核函数丢失了原始的$w$的物理意义，但要选择的参数少，不过也要注意防止overfitting的情况。
+#合法的核函数
+有一个叫做<font color='red'>Mercer's condition</font>用来判断核函数的合法性：
+1.对称
+2.矩阵$ZZ^T$必须是一个半正定的矩阵
+下面回顾一下半正定的概念：
+##半正定矩阵
+* 定义
+![半正定](http://7u2m8l.com1.z0.glb.clouddn.com/31.png)
+* 性质
+![性质](http://7u2m8l.com1.z0.glb.clouddn.com/32.png)
+
+##构建合法的核函数
+这里直接参考了某大学的[PPT](http://www.ra.cs.uni-tuebingen.de/lehre/ss12/advanced_ml/lecture3.pdf):
+![一](http://7u2m8l.com1.z0.glb.clouddn.com/33.png)
+![二](http://7u2m8l.com1.z0.glb.clouddn.com/34.png)
+更多推导与证明，请参见[<font color='red'>PPT</font>](http://www.ra.cs.uni-tuebingen.de/lehre/ss12/advanced_ml/lecture3.pdf)以及[<font color='red'>MIT handout</font>](http://ocw.mit.edu/courses/sloan-school-of-management/15-097-prediction-machine-learning-and-statistics-spring-2012/lecture-notes/MIT15_097S12_lec13.pdf)。
+下一次将介绍所谓的soft margin的SVM问题。

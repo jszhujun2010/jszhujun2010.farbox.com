@@ -1,0 +1,282 @@
+---
+date: 2016-07-16 19:02
+status: public
+title: 说一说中等难度的两道题
+---
+
+前些天接触到一个日本的IT公司，叫做Indeed，说是要招聘，于是我就参加了他们的两次笔试。不过比较遗憾的是，由于算法题有些时间没刷了，准备有些不足，两次四道题都只过了两道。关键是，四道题中前两道几乎都是水题，非常直接的思路就能写出来的。但每次第三道我就有些卡住了，然后都没有通过。事后，我我重新把第三道题做了一遍，感觉不是特别难，但是还是要有一定的基础的。这里，我就分享一下这两道题。
+
+```
+给定一个6*6的方格，有一些方格中已经填有豆子，而一些则是空的。现在要求，给定这样的方格，
+向方格中填豆子，要求每行每列都有且仅有3个豆子。求问共有多少种填法？
+```
+
+```
+输入：'.'代表空， 'o'代表已满，输入是6行字符串
+..o...
+..oo..
+......
+......
+......
+......
+
+输出：一个整数，表示多少种填法。如果给的数据本身就不满足条件，则输出0.
+```
+
+这道题乍一看，感觉非常明显的两种想法：首先这是一种聚集型的问题，是不是可以用动态规划。但是，最优子问题没有想明白。第二，就是可以用回溯。事实上，听过八皇后的人都知道，这个问题就是八皇后问题的变体嘛。
+当时，我也意识到了这是个八皇后。但是自己没有真正写过八皇后，以为就是一个一般意义上的回溯问题。但当时在写这道题的时候，卡住了很长世间。仔细想了一下，这是一个二维的回溯，脑子里还没有想好整个回溯的过程。第二天在参考了八皇后的代码之后，我才有所明白。
+在经典的八皇后的代码里，放置皇后是一行一行地进行的。虽说是一个二维的问题，但是由于一行只有一个皇后，所以一行只要一个元素就固定下来了。但是这里我们的问题是，一行要三个元素，所以就导致了我思路的混乱。但参考到八皇后的问题，我想应该一行一行地进行。事实上，一行6个，要求有填满三个元素，也就是`20`种可能。只要循环遍历这20种可能，也就将问题转化为类似于8皇后了。这样，后面的思路就清晰了。下面是我调试后的代码：
+```C++
+#include <iostream>
+#include <vector>
+
+using namespace std;
+
+vector<vector<int>> comb;
+
+/*backtarck for generating combination*/
+void generateHelp(vector<vector<int>> &res, int i, int n, int k, vector<int> cur) {
+    if (cur.size() == k) {
+        res.push_back(cur);
+        return;
+    }
+
+    if (i >= n)
+        return;
+
+    for (int j = i; j < n; j++) {
+        cur.push_back(j);
+        generateHelp(res, j+1, n, k, cur);
+        cur.pop_back();
+    }
+}
+
+vector<vector<int>> generateCombination(int n, int k) {
+    vector<vector<int>> res;
+    vector<int> cur;
+
+    for (int i = 0; i < n; i++) {
+        cur.push_back(i);
+        generateHelp(res, i+1, n, k, cur);
+        cur.pop_back();
+    }
+
+    return res;
+}
+
+void printComb(vector<vector<int>> &res) {
+    int m = res.size();
+    if (m < 1) return;
+    int n = res[0].size();
+    for (int i = 0; i < m; i++) {
+        for (int j = 0; j < n; j++) {
+            cout << res[i][j] << " ";
+        }
+        cout << endl;
+    }
+}
+
+
+/*ith comb, jth row*/
+void backtrack(int i, int j, int n, vector<string> &arr, int &cnt, vector<int> row, vector<int> col) {
+
+//    cout << i << " " << j << endl;
+    /*return condition*/
+    if (j == n-1) {
+        for (int k = 0; k < 6; k++) {
+            if (col[k] != 3)
+                return;
+        }
+        cnt++;
+//        print(arr);
+//        cout << "\n" << endl;
+        return;
+    }
+
+    for (int k = 0; k < 6; k++) {
+        if (col[k] > 3)
+            return;
+    }
+
+    for (int k = 0; k < comb.size(); k++) {
+        vector<int> seq = comb[k];
+        vector<int> uncommon;
+        for (int l = 0; l < 3; l++) {
+            if (arr[j+1][seq[l]] == '.')
+                uncommon.push_back(seq[l]);
+        }
+        if (row[j+1]+uncommon.size() == 3) {
+            for (auto elem: uncommon) {
+                arr[j+1][elem] = 'o';
+                col[elem]++;
+            }
+            backtrack(k, j+1, 6, arr, cnt, row, col);
+            for (auto elem: uncommon) {
+                arr[j+1][elem] = '.';
+                col[elem]--;
+            }
+        }
+    }
+
+}
+
+int main() {
+    vector<string> arr(6);
+    arr = {"..o...",
+           ".o....",
+           ".o.o..",
+           "..o.o.",
+           "......",
+           "......"};
+//    for (int i = 0; i < 6; i++)
+//        cin >> arr[i];
+
+    int cnt = 0;
+    vector<int> col(6);
+    vector<int> row(6);
+    //bool flag = false;
+
+    for (int i = 0; i < 6; i++) {
+        for (int j = 0; j < 6; j++) {
+            if (arr[i][j] == 'o') {
+                row[i]++;
+                col[j]++;
+                if (row[i] > 3 || col[j] > 3) {
+                    cout << 0 << endl;
+                    return 0;
+                }
+            }
+        }
+    }
+
+    comb = generateCombination(6, 3);
+
+    /*loop over combinations*/
+    for (int i = 0; i < comb.size(); i++) {
+        vector<int> seq = comb[i];
+        vector<int> uncommon;
+        for (int j = 0; j < 3; j++) {
+            if (arr[0][seq[j]] == '.')
+                uncommon.push_back(seq[j]);
+        }
+        /*check if satisfy row condition*/
+        if (row[0]+uncommon.size() == 3) {
+            for (auto elem: uncommon) {
+                arr[0][elem] = 'o';
+                col[elem]++;
+            }
+            backtrack(i, 0, 6, arr, cnt, row, col);
+            for (auto elem: uncommon) {
+                arr[0][elem] = '.';
+                col[elem]--;
+            }
+        }
+//        cout << "cnt = " << cnt << endl;
+    }
+
+    cout << cnt << endl;
+    return 0;
+}
+```
+
+第二题
+```
+给定一个 r*n 的方格，每一个方格里都有多米诺骨牌。在每一个方格中，都有一个字符串，一定是'R', 'C', '?'中的一个。'R'表示如果当前方格中的牌倒了，右边那个方格中的牌也会倒下；'C'则表示如果当前方格中的牌倒了，下边那个方格中的牌也会倒下；'?'表示该方格等概率随机取'R'和'C'。如果遇到了边界的话，牌倒下的过程就会停止。现在，我们从最左上方开始推牌，按照从左到右，从上到下的顺序，要将牌全部推倒。求推牌次数的期望。
+```
+```
+输入：第一行是是两个整数r, n；后面则是方格的情况。
+
+3 5
+CCCRC
+CC??R
+????R
+```
+
+这道题，主要是没有把问题搞明白。一开始以为这个多米诺骨牌只能单向倒下，后来又思维定势地以为最多转一次弯。但仔细想想，这个不就是个`DFS`呀！
+这里的`?`就是一个噱头，最终还是要转化为`R`或者`C`的，也就是枚举所有的可能性，这个写个回溯就好了。之后就是计数，计算要多少次可以全部推倒了。这个过程也不复杂，从`(0, 0)`开始循环做`DFS`就行了。
+下面是我调试完的代码（由于当时只有远程Linux的环境，vim下写`C++`太蛋疼了，只好写个更直接的`Python`，但整个过程还是很不爽的）：
+
+```python
+##figure out the idea behind the problem: DFS!!!
+##DFS + basic backtrack
+
+count = 0
+total = 0
+
+def generateStr(k, empty, strs, r, c):
+	global total, count
+	count = 0
+	if k == len(empty):
+		# print strs
+		state = [[0 for j in range(c)] for i in range(r)]
+		for i in range(r):
+			for j in range(c):
+				if state[i][j] == 0:
+					countNum(strs, i, j, r, c, state)
+					count += 1
+		# print "count = %d" %count
+		total += count
+		return
+
+	x, y = empty[k]
+	strs[x][y] = 'R'
+	generateStr(k+1, empty, strs, r, c)
+	strs[x][y] = 'C'
+	generateStr(k+1, empty, strs, r, c)
+
+
+
+
+
+def isCorner(x, y, r, c):
+	return x == r or y == c
+
+def countNum(strs, x, y, r, c, state):
+	if isCorner(x, y, r, c):
+		return
+
+	if state[x][y] == 1:
+		return
+
+	# print x, y
+	if strs[x][y] == 'R':
+		state[x][y] = 1
+		countNum(strs, x, y+1, r, c, state)
+	elif strs[x][y] == 'C':
+		state[x][y] = 1
+		countNum(strs, x+1, y, r, c, state)
+
+def main():
+	r, c = map(int, raw_input().split())
+	strs = []
+	for i in range(r):
+		strs.append(list(raw_input()))
+
+	empty = []
+	for i in range(r):
+		for j in range(c):
+			if (strs[i][j] == '?'):
+				empty.append((i, j))
+
+	generateStr(0, empty, strs, r, c)
+
+	print float(total)/(2**len(empty))
+
+if __name__ == '__main__':
+	main()
+	# strs = ["CCCRC", "CCRRR", "CCCCR"]
+	# strs = [list(x) for x in strs]
+	# count = 0
+	# r = 3
+	# c = 5
+	# state = [[0 for j in range(c)] for i in range(r)]
+	# for i in range(r):
+	# 	for j in range(c):
+	# 		if state[i][j] == 0:
+	# 			countNum(strs, i, j, r, c, state)
+	# 			print '\n'
+	# 			count += 1
+	# print "count = %d" %count	
+
+
+```

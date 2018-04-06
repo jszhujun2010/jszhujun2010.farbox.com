@@ -1,0 +1,31 @@
+---
+date: 2015-03-12 10:20
+status: public
+tags: Learning_From_data
+title: 'RBF Network的两种解释，参数化与非参数化的方法'
+---
+
+[TOC]
+最近在阅读Learning From Data的电子书章节的第6章，计划最近两个月将其读完。第六章主要讲的是similarity based methods, 将我所知道的基于相似性的supervised以及unsupervised的方法都囊括了。提到基于相似性的学习算法，最容易想到的就是KNN. 第六章的第一部分就是讲KNN，但是从数学的角度来阐述的（毕竟KNN是比较heuristic的方法，要使用的话最好能在数学层面上解释）。我感觉方法本身很简单，但数学推导过程很复杂，所以就不大准备针对KNN写博文了（但那个condesed KNN倒是可以写一篇）。接着，第六章就讲到RBF函数。本文将对RBF函数进行总结。
+其实，在上machine learning techniques课程的时候我就学到了RBF函数以及RBF网络。具体可见[RBF Network](http://jszhujun2010.farbox.com/post/mlt_note/rbf-network),在那里面我们是把径向基函数看成对原始数据的一种转换，然后通过计算线性模型的系数（参数）获得最终的假设函数。这实际上是一种参数化的方法，也就是说我们一开始假设转换后的数据适合使用线性模型，剩下的工作就是确定线性模型的系数就可以了。如果转换函数（径向基函数）为$\Phi_n(\mathbf x)=\phi(||\mathbf{x-x_n}||/r)$,假设的形式就可以写成：
+```mathjax
+h(\mathbf x)=\sum_{n=1}^{N}w_n\Phi_n(\mathbf x)+w_0
+```
+这种方法实际上是将每一个已有的数据点$(\mathbf x_n,y_n)$看成中心，每一个数据点都占有相应的权重$w_n$,且$w_n$为常数（与点$x$无关）。如下图(b)所示:
+注：下图来自learning from data的e-chapter，版权归原作者。
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/rbf_view.png)
+对应的，RBF还有另外一种解释。
+正如上图图(a)所示，如果我们将点$\mathbf x$看成中心点，要计算$\mathbf x$的$y$值的话，就要计算每一个已有数据点对该点的影响，然后将这些影响加权平均。具体来讲，我们将点$\mathbf x_n$对点$\mathbf x$的影响为径向基函数$\alpha_n(\mathbf x)=\phi(||\mathbf{x-x_n}||/r)$,那么最后的假设就是：
+```mathjax
+g(\mathbf x)=\frac{\sum_{n=1}^{N}\alpha_n(\mathbf x)y_n}{\sum_{n=1}^{N}\alpha_n(\mathbf x)}
+```
+$g(\mathbf x)$也可以写成：
+```mathjax
+g(\mathbf x)=\sum_{n=1}^{N}w_n(\mathbf x)\Phi_n(\mathbf x)
+```
+这里$w_n(\mathbf x)=y_n/\sum_{i=1}{N}\phi(||\mathbf{x-x_i}||/r)$,所以这里的$w_n$是一个与点$\mathbf x$有关的数。但是这个假设里面没有参数，因为$w_n$可以透过数据点马上得到。
+以上就是RBF的两种解释，一种是参数化的方法，另外一种则不是参数化的方法。联想到KNN的方法，可以发现KNN实际上就是一种非参数化的方法。
+那么参数化与非参数化哪个好呢？参考下图（来自learning from data的e-chapter，版权归原作者。）：
+![para](http://7u2m8l.com1.z0.glb.clouddn.com/para.png)
+上图中，参数$r$控制高斯函数的宽度（控制函数的平滑程度），这个暂且不管，对比一下上下图的异同。可以发现，非参数化的结果是"step-like"的，而且数据拟合得不是很完美。而参数化的方法则能够很好地拟合数据，因为这是我们学习后的结果。尽管如此，使用参数化的方法我们很可能会overfitting!
+所以，很难说哪个解释更好，只是好像我们更常使用的参数化的方法，但要防止overfitting!

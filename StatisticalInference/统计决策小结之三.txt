@@ -1,0 +1,34 @@
+---
+date: 2015-03-27 19:32
+status: public
+tag: StatisticalInference
+title: 统计决策小结之三
+---
+
+[TOC]
+##Central Limit Theory
+中心极限定理讲的是什么呢？以前对这个概念已知很模糊，以为只要对总体采样足够多就可以得到一个正态分布。事实上，仔细想想这肯定是不对的，因为如果全部都采集来的话就是原来的总体，怎么能肯定得到一个正态分布的结果呢？
+正态分布讲的是：
+```
+ The distribution of sample statistics is nearly normal, centered at the population mean, and with a standard deviation equal to the population standard deviation divided by square root of the sample size.
+```
+``` mathjax
+ \bar x  \sim  N\left(\text{mean}=\mu, \text{SE}=\frac{\sigma}{\sqrt{N}}\right)
+ ```
+意思就是说，我们对总体数据进行多次采样，得到很多组样本。这些样本的统计数据（比如均值）总体上会呈现出一个正态分布的结果。这个正态分布的均值为原始数据的均值，标准差与原始数据的标准差有个数值上的关系。从上面。从式子可以看出，当样本数据$N$变大的时候，我们得到的统计数据的标准差会减小
+那么要满足中心极限定理，我们采样有什么要求呢？
++ 样本数据必须独立
+
+这里独立的条件可以具体写为：采样过程必须是randon sample或者random assignment. 如果是不带回放的抽样的话，采样数量不得大于总体的10%.
++ 无论原始数据是正态分布还是skewed, 抽样数据大小一定要大（比如大于30）
+
+##置信区间（对于均值统计）与采样大小
+假设我们现在要研究的统计量是样本的均值，我们就可以把
+```mathjax
+\bar{x} \pm z* \frac{s}{\sqrt{n}}
+```
+称之为置信区间，置信区间的大小是$z$控制的，这里$z$就是前面提到的$z$-score.举个例子，如果是95%的置信区间的话，这里的$z$就取2。
+我们称$\frac{s}{\sqrt{n}}$为margin error, 简写ME。在给定ME的情况下，我们还可以得到我们需要的采样数量$n$:
+```mathjax
+n = \left( \frac{z*s}{\text{ME}} \right)^2
+```

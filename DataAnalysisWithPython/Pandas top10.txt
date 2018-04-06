@@ -1,0 +1,571 @@
+---
+date: 2015-05-21 19:34
+status: public
+title: Pandas 简介
+tags: Data_Analysis_With_Python
+---
+
+[TOC]
+最近在跟进哈佛的CS109，课程中以Python为工具进行数据分析。Python自带的数据结构存储现实中的数据不是很方便，numpy里面的一些矩阵结构毕竟只能存储数值，对“元数据”的存储无能为力。好像是在08年的时候，Wes McKinney模仿R语言里面的数据存储结构，编写了现在著名的Pandas库，使得Python处理数据起来简单方便。
+本文主要参考了[Pandas and Python: Top 10](http://manishamde.github.io/blog/2013/03/07/pandas-and-python-top-10/)，并结合了CS109课程里面的一些内容，对Pandas进行一些简单的介绍。据说Pandas的官方文档写得特别好，这里mark一下。[<font color="red">官方文档</font>](http://pandas.pydata.org/pandas-docs/stable/)
+Pandas一个最大的特征就是将R语言里面的DataFrame移植过来了。回忆一下，R里面的DataFrame就是一个数据表，每一行是一个instance，每一列代表一个attribute，我们可以很方便地在这个数据表里面进行许多操作。现在，我们在Python里面创建一个DataFrame，每一行表示一个学生，每个学生有两个信息：ID与score:
+```Python
+import pandas as pd
+import numpy as np
+from pandas import DataFrame, Series
+df = DataFrame({"ID": [2,5,7,10,12], "score": [85,79,96,77,None]})
+```
+看上去DataFrame的创建有点像dictionary，我们来看一下df的结构：
+```Python
+ df
+Out[5]: 
+   ID  score
+0   2     85
+1   5     79
+2   7     96
+3  10     77
+4  12    NaN
+```
+下面开始介绍如何操作这些数据：
+##Indexing
+我们常常需要选取DataFrame里面选取一些row或者一些column出来：
+###选取column
+```Python
+df[["score"]]
+Out[6]: 
+   score
+0     85
+1     79
+2     96
+3     77
+4    NaN
+```
+这里大家可能会有一个困惑，那就是为什么要两层中括号？我们来看一下一层括号的结果：
+```Python
+df["score"]
+Out[7]: 
+0    85
+1    79
+2    96
+3    77
+4   NaN
+Name: score, dtype: float64
+```
+看上去没什么区别，我们来看一下二者的类型：
+```Python
+type(df[["score"]])
+Out[8]: pandas.core.frame.DataFrame
+
+type(df["score"])
+Out[9]: pandas.core.series.Series
+```
+可以发现上面返回的实际上是一个DataFrame，但是下面返回的类型则是series（简单地说，就是那一列数据）!事实上，要获取一个column，我们做到可以更简单：
+```Python
+df.score
+Out[10]: 
+0    85
+1    79
+2    96
+3    77
+4   NaN
+Name: score, dtype: float64
+```
+###选取row
+首先是推荐官方文档[boolean indexing](http://pandas.pydata.org/pandas-docs/version/0.9.1/indexing.html#boolean-indexing).
+下面来看一些例子：
+```Python
+df[df["ID"] > 2]
+Out[11]: 
+   ID  score
+1   5     79
+2   7     96
+3  10     77
+4  12    NaN
+```
+```Python
+df[df["ID"] == 2]
+Out[12]: 
+   ID  score
+0   2     85
+```
+我们还可以使用boolean操作符将几个条件连接起来，其符号分别是"&","|","~"，注意是单个符号，不是大多数编程语言里面的两个符号。
+```Python
+df[(df["ID"] > 2) & (df["score"] > 75)]
+Out[14]: 
+   ID  score
+1   5     79
+2   7     96
+3  10     77
+```
+要注意的是，上面的"()&()",括号不能少。
+##column重命名
+记得在R里面有一个colnames的函数，对应的，在Pandas里面使用的是rename. 现在假设我们要吧之前的df中的ID改名为S_ID:
+```Python
+df.rename(columns={df.columns[0]:'S_ID'}, inplace=True)
+df.columns
+Out[16]: Index([u'S_ID', u'score'], dtype='object')
+```
+其中inplace表示改变已有的DataFrame。
+##处理缺值
+这个是[官方文档](http://pandas.pydata.org/pandas-docs/dev/missing_data.html#missing-data-basics)。处理缺值可以是直接去除掉，也可以添加默认值：
+###去掉缺值(dropna)
+```Python
+df2 = df.copy()
+df2.dropna()
+Out[18]: 
+   S_ID  score
+0     2     85
+1     5     79
+2     7     96
+3    10     77
+```
+###用均值填补缺省值
+```Python
+mean = df3["score"].mean()
+mean
+Out[23]: 84.25
+
+df3["score"].fillna(mean)
+Out[24]: 
+0    85.00
+1    79.00
+2    96.00
+3    77.00
+4    84.25
+Name: score, dtype: float64
+```
+##对应R里面的table, unique, head
+```Python
+df.head()
+Out[26]: 
+   S_ID  score
+0     2     85
+1     5     79
+2     7     96
+3    10     77
+4    12    NaN
+
+pd.crosstab(df.S_ID, df.score)
+Out[27]: 
+score  77  79  85  96
+S_ID                 
+2       0   0   1   0
+5       0   1   0   0
+7       0   0   0   1
+10      1   0   0   0
+
+df.score.unique()
+Out[28]: array([ 85.,  79.,  96.,  77.,  nan])
+```
+##Map与Apply
+###Map
+for循环在R里面效率极其低下，Pandas里面也是如此。使用map, apply以及applymap等函数可以"do vectorized computation"。注意，这里大量使用了“匿名函数”，不熟悉的话可以参见[这个文档](http://www.python-course.eu/lambda.php)。
+```Python
+df.S_ID.map(lambda x: 'ID' + str(x))
+Out[31]: 
+0     ID2
+1     ID5
+2     ID7
+3    ID10
+4    ID12
+Name: S_ID, dtype: object
+```
+注意，事实上此时df并没有变化，如果要df变化，直接给df.S_ID赋值就好了。
+###Apply
+```Python
+dfsub = df[["score"]].apply(lambda x: x/100.0)
+dfsub.dropna()
+Out[43]: 
+   score
+0   0.85
+1   0.79
+2   0.96
+3   0.77
+```
+###applymap
+[applymap](http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.applymap.html)可以方便地处理DataFrame里面每一个元素。
+```Python
+def func(x):
+    if type(x) is str:
+        return 'ID_'+ x
+    elif x:
+        return x/100.0
+    else:
+        return
+    
+
+df.applymap(func)
+Out[47]: 
+    S_ID  score
+0   ID_2   0.85
+1   ID_5   0.79
+2   ID_7   0.96
+3  ID_10   0.77
+4  ID_12    NaN
+```
+要注意，前面我已经把S_ID改成了string类型了。
+###向量运算与字符串处理
+假设我们有一个DataFrame叫做df_data:
+```Python
+##verctor addtion
+df_data = pd.DataFrame(data={"A":[2,3], "B":[1.1,2.1]})
+df_data["C"] = df_data["A"] + df_data["B"]
+df_data
+Out[53]: 
+   A    B    C
+0  2  1.1  3.1
+1  3  2.1  5.1
+
+#string processing in vector
+df_data["C"] = ["a", "b"]
+df_data
+Out[57]: 
+   A    B  C
+0  2  1.1  a
+1  3  2.1  b
+
+df_data.C = df_data.C.str.upper()
+df_data
+Out[59]: 
+   A    B  C
+0  2  1.1  A
+1  3  2.1  B
+```
+##GroupBy
+SQL有类似的语句，R里面应该也有（我不知道，一般用table解决问题），Pandas里面提供了这样的语句，具体看[文档](http://pandas.pydata.org/pandas-docs/dev/groupby.html)。
+我们新建一个DataFrame，叫做df(覆盖掉前面的那个)：
+```Python
+df = pd.DataFrame(data={"A":[1,2,1,3,2], "B":[50,78,45,66,98]})
+grouped = df["B"].groupby(df["A"])
+grouped.mean()
+Out[67]: 
+A
+1    47.5
+2    88.0
+3    66.0
+Name: B, dtype: float64
+```
+##使用已有属性(column)创建新的属性
+###单列创建多列
+这里有个[stackoverflow问题](http://stackoverflow.com/questions/12356501/pandas-create-two-new-columns-in-a-dataframe-with-values-calculated-from-a-pre)。
+```Python
+df2 = df.copy()
+def foo(x):
+    return x/100.0, sqrt(x)*10
+
+df2["Percent"], df2["Record"] = zip(*df2["B"].map(foo))
+df2
+Out[77]: 
+   A   B  Percent     Record
+0  1  50     0.50  70.710678
+1  2  78     0.78  88.317609
+2  1  45     0.45  67.082039
+3  3  66     0.66  81.240384
+4  2  98     0.98  98.994949
+```
+###单列创建多列
+这里是[stackoverflow上的问题](http://stackoverflow.com/questions/13331698/how-to-apply-a-function-to-two-columns-of-pandas-dataframe?lq=1)。
+```Python
+df3 = df.copy()
+def bar(series):
+    return series["B"] - series["A"] 
+df3["C"] = df3.apply(bar, axis=1)
+df3
+Out[97]: 
+   A   B   C
+0  1  50  49
+1  2  78  76
+3  3  66  63
+4  2  98  96
+```
+###多列创建多列
+这里是[stackoverflow上的问题](http://stackoverflow.com/questions/10751127/returning-multiple-values-from-pandas-apply-on-a-dataframe)。
+```Python
+def foobar(series):
+    return pd.Series({"Q":series["B"]*0.1, "W":series["C"]*0.2})
+df3.apply(foobar, axis = 1)
+Out[99]: 
+     Q     W
+0  5.0   9.8
+1  7.8  15.2
+3  6.6  12.6
+4  9.8  19.2
+```
+##统计数据
+这个是Pandas的[官方文档](http://pandas.pydata.org/pandas-docs/dev/computation.html)，这里将介绍describe, correlation, covariance.
+###describe
+对应到R语言里面，describe应该就是summary之类的函数，统计每个属性的基本信息。
+```Python
+df3.describe()
+Out[100]: 
+              A          B          C
+count  4.000000   4.000000   4.000000
+mean   2.000000  73.000000  71.000000
+std    0.816497  20.231988  19.983326
+min    1.000000  50.000000  49.000000
+25%    1.750000  62.000000  59.500000
+50%    2.000000  72.000000  69.500000
+75%    2.250000  83.000000  81.000000
+max    3.000000  98.000000  96.000000
+```
+###covariance
+R语言里面直接cov好像也可以计算协方差，当然还有std计算标准差。要注意这里方差计算的是“协方差矩阵”，标准差则计算的每个属性的标准差。
+```Python
+df3.cov()
+Out[101]: 
+          A           B           C
+A  0.666667    5.333333    4.666667
+B  5.333333  409.333333  404.000000
+C  4.666667  404.000000  399.333333
+
+df3.std()
+Out[102]: 
+A     0.816497
+B    20.231988
+C    19.983326
+dtype: float64
+```
+###correlation
+```Python
+df3.corr()
+Out[104]: 
+          A         B         C
+A  1.000000  0.322854  0.286012
+B  0.322854  1.000000  0.999252
+C  0.286012  0.999252  1.000000
+```
+##Merge, Join and Concat
+###merge
+我们都知道，在R里面有一个merge函数，用来连接两个table，同样的，在Python里面也会有类似的功能函数：
+```Python
+df_m1 = DataFrame({"ID":[1,2,3,4], "math":[5,4,5,3], "art":[4,5,4,5]})
+
+df_m2 = DataFrame({"ID":[2,1,4], "writing":[4,5,3], "science":[4,5,2]})
+
+df_m2
+Out[112]: 
+   ID  science  writing
+0   2        4        4
+1   1        5        5
+2   4        2        3
+
+pd.merge(df_m1, df_m2, on="ID", how="inner")
+Out[113]: 
+   ID  art  math  science  writing
+0   1    4     5        5        5
+1   2    5     4        4        4
+2   4    5     3        2        3
+
+pd.merge(df_m1, df_m2, on="ID", how="outer")
+Out[114]: 
+   ID  art  math  science  writing
+0   1    4     5        5        5
+1   2    5     4        4        4
+2   3    4     5      NaN      NaN
+3   4    5     3        2        3
+
+pd.merge(df_m1, df_m2, on="ID", how="left")
+Out[115]: 
+   ID  art  math  science  writing
+0   1    4     5        5        5
+1   2    5     4        4        4
+2   3    4     5      NaN      NaN
+3   4    5     3        2        3
+
+pd.merge(df_m1, df_m2, on="ID", how="right")
+Out[116]: 
+   ID  art  math  science  writing
+0   1    4     5        5        5
+1   2    5     4        4        4
+2   4    5     3        2        3
+```
+这个好像比R里面的merge(使用all.x, all.y什么的)要优雅一些，将SQL里面的一些概念融合进来了。
+###join
+这个是[join](http://pandas.pydata.org/pandas-docs/dev/generated/pandas.DataFrame.join.html)的官方文档，看上去好像跟merge的功能差不多，那么什么情况下使用什么呢？我们来看一下[stackoverflow的问题](http://stackoverflow.com/questions/22676081/pandas-the-difference-between-join-and-merge)，再看一下[官方文档](http://pandas.pydata.org/pandas-docs/stable/merging.html)，可以发现join默认是在index上进行连接操作的，内部实现上实际上还是使用的merge。这里提到了index的概念，上面好像忘记提到index了，这里说一下：上面print出来的DataFrame的最前面一列就是所谓的index，如果不指定的话，DataFrame就默认设置。
+```Python
+#construct DataFrame with index
+df_index = DataFrame({"A":["A0", "A1", "A2", "A3"], "B":["B0", "B1", "B2", "B3"],"C":["C0", "C1", "C2", "C3"],"D":["D0", "D1", "D2", "D3"]}, index=[2,3,4,5])
+df_index
+Out[118]: 
+    A   B   C   D
+2  A0  B0  C0  D0
+3  A1  B1  C1  D1
+4  A2  B2  C2  D2
+5  A3  B3  C3  D3
+```
+下面看一下join操作，默认在indexs上进行：
+```Python
+df_index2 = DataFrame({"F":["E0", "E1", "E2", "E3"], "E":["F0", "F1", "F2", "F3"]}, index=[2,3,4,5])
+df_index3 = df_index.join(df_index2)
+df_index3
+Out[123]: 
+    A   B   C   D   E   F
+2  A0  B0  C0  D0  F0  E0
+3  A1  B1  C1  D1  F1  E1
+4  A2  B2  C2  D2  F2  E2
+5  A3  B3  C3  D3  F3  E3
+```
+###concat与append
+具体函数还是要看文档，这里只讲一个需求，就是将两个DataFrame按行组合起来，也就是R里面的rbind的功能。
+```Python
+frames = [df_index, df_index4]
+pd.concat(frames)
+Out[131]: 
+    A   B   C   D
+2  A0  B0  C0  D0
+3  A1  B1  C1  D1
+4  A2  B2  C2  D2
+5  A3  B3  C3  D3
+0  A4  B4  C4  D4
+1  A5  B5  C5  D5
+6  A6  B6  C6  D6
+7  A7  B7  C7  D7
+```
+一个更简单的命令是append，类似于list的操作：
+```Python
+df_index.append(df_index4)
+Out[139]: 
+    A   B   C   D
+2  A0  B0  C0  D0
+3  A1  B1  C1  D1
+4  A2  B2  C2  D2
+5  A3  B3  C3  D3
+0  A4  B4  C4  D4
+1  A5  B5  C5  D5
+6  A6  B6  C6  D6
+7  A7  B7  C7  D7
+```
+那么有人会问，R里面的cbind（按列将两个DataFrame结合起来）怎么办呢？
+cancat里面有一个参数axis，默认为0，也就是默认将数据按行连接，如果要按列连接的话：
+```Python
+df_index
+Out[145]: 
+    A   B   C   D
+2  A0  B0  C0  D0
+3  A1  B1  C1  D1
+4  A2  B2  C2  D2
+5  A3  B3  C3  D3
+
+df_index2
+Out[142]: 
+    E   F
+2  F0  E0
+3  F1  E1
+4  F2  E2
+5  F3  E3
+
+pd.concat([df_index, df_index2], axis=1)
+Out[146]: 
+    A   B   C   D   E   F
+2  A0  B0  C0  D0  F0  E0
+3  A1  B1  C1  D1  F1  E1
+4  A2  B2  C2  D2  F2  E2
+5  A3  B3  C3  D3  F3  E3
+```
+将axis设置为1就可以按列连接了。要注意的是，如果有两个DataFrame有属性相同的话，也是简单粗暴地直接连接。
+那我们看一下，如果axis设置为0的话，得到什么结果：
+```Python
+pd.concat([df_index2, df_index3], axis=0)
+Out[141]: 
+     A    B    C    D   E   F
+2  NaN  NaN  NaN  NaN  F0  E0
+3  NaN  NaN  NaN  NaN  F1  E1
+4  NaN  NaN  NaN  NaN  F2  E2
+5  NaN  NaN  NaN  NaN  F3  E3
+2   A0   B0   C0   D0  F0  E0
+3   A1   B1   C1   D1  F1  E1
+4   A2   B2   C2   D2  F2  E2
+5   A3   B3   C3   D3  F3  E3
+```
+嗯，也是简单粗暴地按行连接起来了，不管重复。（这里index相同，不知道什么机理。。。）
+##画图
+好像Pandas自带一些绘图工具，但应该也是使用了matlibplot. 这个是[官方文档](http://pandas.pydata.org/pandas-docs/dev/visualization.html)。
+要使用类似于ggplot一样的绘图风格的话，需要设置：
+```Python
+display.mpl_style = 'default'
+pd.options.display.mpl_style = 'default'
+```
+事实上，如果按照这样设置的话(这是CS109的课程设置)，画的图应该更好看：
+```Python
+import brewer2mpl
+from matplotlib import rcParams
+
+#colorbrewer2 Dark2 qualitative color table
+dark2_cmap = brewer2mpl.get_map('Dark2', 'Qualitative', 7)
+dark2_colors = dark2_cmap.mpl_colors
+
+rcParams['figure.figsize'] = (10, 6)
+rcParams['figure.dpi'] = 150
+rcParams['axes.color_cycle'] = dark2_colors
+rcParams['lines.linewidth'] = 2
+rcParams['axes.facecolor'] = 'white'
+rcParams['font.size'] = 14
+rcParams['patch.edgecolor'] = 'white'
+rcParams['patch.facecolor'] = dark2_colors[0]
+rcParams['font.family'] = 'StixGeneral'
+
+
+def remove_border(axes=None, top=False, right=False, left=True, bottom=True):
+    """
+    Minimize chartjunk by stripping out unnecesasry plot borders and axis ticks
+    
+    The top/right/left/bottom keywords toggle whether the corresponding plot border is drawn
+    """
+    ax = axes or plt.gca()
+    ax.spines['top'].set_visible(top)
+    ax.spines['right'].set_visible(right)
+    ax.spines['left'].set_visible(left)
+    ax.spines['bottom'].set_visible(bottom)
+    
+    #turn off all ticks
+    ax.yaxis.set_ticks_position('none')
+    ax.xaxis.set_ticks_position('none')
+    
+    #now re-enable visibles
+    if top:
+        ax.xaxis.tick_top()
+    if bottom:
+        ax.xaxis.tick_bottom()
+    if left:
+        ax.yaxis.tick_left()
+    if right:
+        ax.yaxis.tick_right()
+```
+现在假设有下面的数据：
+```Python
+l = DataFrame(np.random.randn(10, 2), columns=['x','y'])
+l.y = l.y.map(lambda x: x + 1)
+l
+Out[159]: 
+          x         y
+0 -0.383000 -0.803424
+1  1.486139  0.795666
+2  1.010346  0.171269
+3  1.094609  0.762797
+4 -0.081164  0.821752
+5  0.180188  0.942973
+6 -1.289955  2.552610
+7 -0.135328  2.605320
+8  0.359726  1.111293
+9 -1.382835 -0.112170
+```
+我们在不同的环境下，绘制折线图与直方图：
+```Python
+l.plot()
+l.hist()
+```
+1.默认环境下
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/pandas1.png)
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/pandas2.png)
+2.设置了上面的两行命令后
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/pandas3.png)
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/pandas4.png)
+3.设置为CS109的风格后
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/pandas5.png)
+![Image Title](http://7u2m8l.com1.z0.glb.clouddn.com/pandas6.png)
+好像感觉好看了一些！反正要用的时候，还是多看一看已有的例子与文档吧。
+##Pandas与scikit-learn的衔接
+scikit-learn库还没有学着用过，这里先mark一下。听说有一个Sklearn-pandas的库，将出局处理与机器学习算法库桥接起来了，这个是[github地址](https://github.com/paulgb/sklearn-pandas)。
+##小结
+本文主要介绍了pandas数据处理的常见方法，一些绘图方法。网上都说pandas的文档做得特别好，遇到问题的时候还是看文档吧。总之，pandas应该能基本上覆盖R处理数据的大部分功能，效率可能不比R差。至于绘图功能，嗯，还是ggplot好看！
+最后推荐两个网址，一个是pandas作者[Wes Mckinney](http://wesmckinney.com/blog/)的博客，同时他的<font color="red">Python for Data Analysis</font>写得很好。另一个是无意中看到的，是[Kevin Davenport](http://kldavenport.com/)的data blog，界面很精美，写得也很好。
