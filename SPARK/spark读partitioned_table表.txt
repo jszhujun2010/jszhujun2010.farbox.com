@@ -1,0 +1,27 @@
+---
+date: 2018-10-21 13:40
+status: public
+title: 'spark读partitioned hive表'
+---
+
+本来想写个读分区表的原理分析的，现在突然意识到是逻辑写得有问题，这里就简单记录一下吧。
+事情是这样子的：
+我有一个spark读hive表，理论上根据dt分区，我只要其中一两个分区，应该很快才对，但貌似无论是spark还是hive都会扫描整个表文件，所以感觉有哪里不对劲。hive sql大概如下：
+```sql
+select f1, f2 
+from some_table
+where dt between a and b
+and cond1 and cond2 or cond3
+```
+或许有人已经看出来了，显然是逻辑写得有问题：
+这里面有四个条件：
++ cond0: dt between a and b
++ cond 2, cond 3, cond 4
+
+整合起来就是`cond0 and cond2 and  cond3 or cond4`
+根据`or`优先级最高的原则，上面的条件加上括号实际上就是：
+```sql
+(cond0 and cond2 and cond3) or cond4
+```
+所以hive/spark在读文件的时候，根据这个条件根本无法选择分区文件，于是只能扫描hive表里的所有文件，速度自然就慢下来了。
+算了，这是个弱智的错误，就不多说了。。。
